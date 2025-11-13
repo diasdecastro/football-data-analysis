@@ -21,3 +21,15 @@ A project for analyzing football data using StatsBomb open data for learning pur
 ## Overview
 
 This project implements a data pipeline for football analytics, focusing on Expected Goals (xG) modeling using StatsBomb data. The architecture follows a medallion data structure (bronze → silver → gold) for data processing and includes machine learning components for predictive modeling.
+
+## Expected Goals (xG) Modeling
+
+### Features
+ - Shot distance to goal
+ - Shot angle
+ - Outcome (goal or no goal)
+ - Shot type (e.g., open play, set piece) TBI
+ - Body part used (e.g., foot, head) TBI
+ - Defensive pressure TBI
+ - Player position TBI
+ - Is counterattack TBI

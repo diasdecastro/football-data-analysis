@@ -25,7 +25,15 @@ def gold(subpath: str = "") -> Path:
 
 
 def shots_silver_path() -> Path:
-    return SILVER_ROOT / "shots.parquet"
+    return silver("shots.parquet")
+
+
+def xg_features_gold_path(version: str | None = None):
+    """Standard location for gold-level xG features."""
+    name = (
+        "xg_features.parquet" if version is None else f"xg_features_{version}.parquet"
+    )
+    return gold(name)
 
 
 def write_table(

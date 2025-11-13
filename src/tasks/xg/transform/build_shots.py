@@ -266,6 +266,7 @@ def build_shots(
 
 
 def parse_cli() -> argparse.Namespace:
+    """Parse data from CLI arguments"""
     p = argparse.ArgumentParser(
         description="Build silver/shots.parquet from StatsBomb Open Data (bronze)."
     )
