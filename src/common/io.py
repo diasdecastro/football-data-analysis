@@ -13,29 +13,25 @@ GOLD_ROOT = DATA_ROOT / "gold"
 
 
 def bronze(subpath: str = "") -> Path:
-    """Get path to bronze data directory or subdirectory."""
     return BRONZE_ROOT / subpath
 
 
 def silver(subpath: str = "") -> Path:
-    """Get path to silver data directory or subdirectory."""
     return SILVER_ROOT / subpath
 
 
 def gold(subpath: str = "") -> Path:
-    """Get path to gold data directory or subdirectory."""
     return GOLD_ROOT / subpath
 
 
 def shots_silver_path() -> Path:
-    """Get the standard path for silver shots data."""
     return SILVER_ROOT / "shots.parquet"
 
 
 def write_table(
     df: pd.DataFrame, path: Union[str, Path], index: bool = False, **kwargs
 ) -> None:
-    """Write DataFrame to parquet file, creating directories as needed."""
+    """Write DataFrame to parquet file."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 

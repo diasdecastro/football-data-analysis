@@ -10,7 +10,6 @@ import pandas as pd
 
 from src.common import geometry, io, validation
 
-
 BRONZE_ROOT = io.bronze("statsbomb_open_data/data")
 
 
