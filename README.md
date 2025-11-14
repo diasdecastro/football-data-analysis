@@ -22,7 +22,24 @@ A project for analyzing football data using StatsBomb open data for learning pur
 
 This project implements a data pipeline for football analytics, focusing on Expected Goals (xG) modeling using StatsBomb data. The architecture follows a medallion data structure (bronze → silver → gold) for data processing and includes machine learning components for predictive modeling.
 
-## Expected Goals (xG) Modeling
+## Expected Goals (xG)
+
+### How to run
+
+#### Build shots data (silver)
+
+**Example:**
+```bash
+python -m src.tasks.xg.transform.build_shots_data --competition_names "1. Bundesliga" --season_names "2020/2021"
+```
+**Options:**
+```bash
+--competitions: Comma-separated list of competition IDs
+--seasons: Comma-separated list of season IDs
+--competition_names: Comma-separated list of competition names
+--season_names: Comma-separated list of season names
+--out: Output path for the silver shots data
+```
 
 ### Features
  - Shot distance to goal
