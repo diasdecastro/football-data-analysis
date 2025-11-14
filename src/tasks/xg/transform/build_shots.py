@@ -8,7 +8,7 @@ from typing import Dict, Iterable, Iterator, List, Optional
 
 import pandas as pd
 
-from src.common import geometry, io, validation
+from src.common import geometry, io, lookup, validation
 
 BRONZE_ROOT = io.bronze("statsbomb_open_data/data")
 
@@ -271,7 +271,7 @@ def parse_cli() -> argparse.Namespace:
         description="Build silver/shots.parquet from StatsBomb Open Data (bronze)."
     )
     p.add_argument(
-        "--comps",
+        "--competitions",
         type=str,
         default=None,
         help="Comma-separated competition_ids to include (e.g., '2,9,43'). Defaults to all.",
@@ -281,6 +281,18 @@ def parse_cli() -> argparse.Namespace:
         type=str,
         default=None,
         help="Comma-separated season_ids to include (e.g., '3,4,44'). Defaults to all.",
+    )
+    p.add_argument(
+        "--competition-names",
+        type=str,
+        default=None,
+        help="Comma-separated competition names (e.g., 'Premier League,La Liga'). Alternative to --competitions.",
+    )
+    p.add_argument(
+        "--season-years",
+        type=str,
+        default=None,
+        help="Comma-separated season years (e.g., '2022/2023,2023/2024'). Alternative to --seasons.",
     )
     p.add_argument(
         "--out",
@@ -297,10 +309,71 @@ def _parse_id_list(s: Optional[str]) -> Optional[List[int]]:
     return [int(x.strip()) for x in s.split(",") if x.strip()]
 
 
+def _parse_name_list(s: Optional[str]) -> Optional[List[str]]:
+    if not s:
+        return None
+    return [x.strip() for x in s.split(",") if x.strip()]
+
+
+def _resolve_competition_names_to_ids(comp_names: List[str]) -> List[int]:
+    """Convert competition names to IDs using lookup."""
+    comp_ids = []
+    for name in comp_names:
+        comp_id = lookup.get_competition_id(name)
+        if comp_id is None:
+            raise ValueError(f"Unknown competition name: '{name}'")
+        comp_ids.append(comp_id)
+    return comp_ids
+
+
+def _resolve_season_names_to_ids(
+    comp_ids: List[int], season_names: List[str]
+) -> List[int]:
+    """Convert season names to IDs using lookup."""
+    season_ids = []
+    for season_name in season_names:
+        found = False
+        for comp_id in comp_ids:
+            season_id = lookup.get_season_id(comp_id, season_name)
+            if season_id is not None:
+                season_ids.append(season_id)
+                found = True
+                break
+        if not found:
+            raise ValueError(
+                f"Unknown season name: '{season_name}' for competitions {comp_ids}"
+            )
+    return season_ids
+
+
 if __name__ == "__main__":
     args = parse_cli()
-    comps = _parse_id_list(args.comps)
+
+    comps = _parse_id_list(args.competitions)
+    comp_names = _parse_name_list(args.competition_names)
+
+    if comps and comp_names:
+        raise ValueError(
+            "Cannot specify both --competitions and --competition-names. Choose one."
+        )
+
+    if comp_names:
+        comps = _resolve_competition_names_to_ids(comp_names)
+
     seasons = _parse_id_list(args.seasons)
+    season_years = _parse_name_list(args.season_years)
+
+    if seasons and season_years:
+        raise ValueError(
+            "Cannot specify both --seasons and --season-years. Choose one."
+        )
+
+    if not (comps or comp_names):
+        raise ValueError("Must specify either --competitions or --competition-names")
+
+    if not (seasons or season_years):
+        raise ValueError("Must specify either --seasons or --season-years")
+
     out_path = Path(args.out) if args.out else None
 
     df = build_shots(comps=comps, seasons=seasons, out_path=out_path)

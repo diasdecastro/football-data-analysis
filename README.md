@@ -33,3 +33,4 @@ This project implements a data pipeline for football analytics, focusing on Expe
  - Defensive pressure TBI
  - Player position TBI
  - Is counterattack TBI
+ - Is home team TBI
