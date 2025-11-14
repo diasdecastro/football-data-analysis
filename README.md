@@ -24,9 +24,7 @@ This project implements a data pipeline for football analytics, focusing on Expe
 
 ## Expected Goals (xG)
 
-### How to run
-
-#### Build shots data (silver)
+### Build shots data (silver)
 
 **Example:**
 ```bash
@@ -39,6 +37,26 @@ python -m src.tasks.xg.transform.build_shots_data --competition_names "1. Bundes
 --competition_names: Comma-separated list of competition names
 --season_names: Comma-separated list of season names
 --out: Output path for the silver shots data
+```
+
+### Build xG features (gold)
+
+```bash
+python -m src.tasks.xg.features.build_xg_features
+```
+
+### train xG model (gold)
+
+```bash
+python -m src.tasks.xg.train.train_xg_model
+```
+**Options:**
+```bash
+--features-path: Path to the features data
+--output-path: Path to save the trained model
+--test-size: Proportion of data for testing
+--random-state: Random seed for reproducibility
+--max-iter: Maximum iterations for solver convergence
 ```
 
 ### Features
