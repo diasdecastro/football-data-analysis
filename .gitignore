@@ -2,4 +2,7 @@ mlruns/
 *.pyc
 __pycache__/
 .env
+data/*
+!data/bronze/
+!data/bronze/statsbomb_open_data/
 Notes.md
