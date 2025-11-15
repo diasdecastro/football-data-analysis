@@ -25,17 +25,10 @@ from src.common import io
 def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
     """
     Load the xG features dataset for training.
-
-    Args:
-        features_path: Optional custom path to features file
-
-    Returns:
-        DataFrame with features and target
     """
     path = features_path or io.xg_features_gold_path()
     features = io.read_table(path)
 
-    # Validate required columns
     required_cols = ["shot_distance", "shot_angle", "is_goal"]
     missing_cols = [col for col in required_cols if col not in features.columns]
     if missing_cols:
@@ -50,20 +43,11 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
 def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Prepare features and target for training.
-
-    Args:
-        df: Raw features DataFrame
-
-    Returns:
-        Tuple of (features, target)
     """
-    # Remove any rows with missing values
+
     df_clean = df.dropna(subset=["shot_distance", "shot_angle", "is_goal"])
 
-    # Features: shot_distance and shot_angle
     X = df_clean[["shot_distance", "shot_angle"]].copy()
-
-    # Target: is_goal (binary)
     y = df_clean["is_goal"].copy()
 
     print(f"📈 Features shape: {X.shape}")
@@ -85,19 +69,9 @@ def train_logistic_regression(
     max_iter: int = 1000,
 ) -> Tuple[LogisticRegression, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
-    Train a logistic regression model for xG prediction.
-
-    Args:
-        X: Features DataFrame
-        y: Target Series
-        test_size: Proportion of data for testing
-        random_state: Random seed for reproducibility
-        max_iter: Maximum iterations for solver convergence
-
-    Returns:
-        Tuple of (model, X_train, X_test, y_train, y_test)
+    Train a logistic regression model for xG prediction. (TBI: choose different model types)
     """
-    # Split data
+
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
@@ -105,7 +79,6 @@ def train_logistic_regression(
     print(f"🔄 Training set: {len(X_train):,} samples")
     print(f"   Test set: {len(X_test):,} samples")
 
-    # Train logistic regression
     model = LogisticRegression(
         random_state=random_state,
         max_iter=max_iter,
@@ -132,26 +105,14 @@ def evaluate_model(
 ) -> dict:
     """
     Evaluate the trained model on train and test sets.
-
-    Args:
-        model: Trained logistic regression model
-        X_train: Training features
-        X_test: Test features
-        y_train: Training target
-        y_test: Test target
-
-    Returns:
-        Dictionary with evaluation metrics
     """
-    # Predictions
+
     y_train_pred = model.predict(X_train)
     y_test_pred = model.predict(X_test)
 
-    # Probabilities for ROC-AUC
     y_train_proba = model.predict_proba(X_train)[:, 1]
     y_test_proba = model.predict_proba(X_test)[:, 1]
 
-    # Calculate metrics
     metrics = {
         "train": {
             "accuracy": accuracy_score(y_train, y_train_pred),
@@ -169,7 +130,6 @@ def evaluate_model(
         },
     }
 
-    # Print results
     print("\n📊 Model Performance:")
     print("=" * 50)
     print(f"{'Metric':<12} {'Train':<10} {'Test':<10}")
@@ -193,16 +153,9 @@ def evaluate_model(
 def save_model(model: LogisticRegression, output_path: Path | None = None) -> Path:
     """
     Save the trained model to disk.
-
-    Args:
-        model: Trained logistic regression model
-        output_path: Optional custom output path
-
-    Returns:
-        Path where model was saved
     """
     if output_path is None:
-        output_path = io.gold("xg_model.joblib")
+        output_path = Path("models/xg_model.joblib")
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -221,36 +174,21 @@ def train_xg_model(
     max_iter: int = 1000,
 ) -> Tuple[LogisticRegression, dict, Path]:
     """
-    Complete training pipeline for xG model.
-
-    Args:
-        features_path: Path to features file
-        output_path: Path to save trained model
-        test_size: Test set proportion
-        random_state: Random seed
-        max_iter: Max iterations for training
-
-    Returns:
-        Tuple of (model, metrics, saved_path)
+    Train xG model.
     """
     print("🚀 Starting xG Model Training Pipeline")
     print("=" * 50)
 
-    # Load data
     df = load_training_data(features_path)
 
-    # Prepare features and target
     X, y = prepare_features_target(df)
 
-    # Train model
     model, X_train, X_test, y_train, y_test = train_logistic_regression(
         X, y, test_size=test_size, random_state=random_state, max_iter=max_iter
     )
 
-    # Evaluate model
     metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
 
-    # Save model
     saved_path = save_model(model, output_path)
 
     print("\n🎉 Training pipeline completed successfully!")
@@ -258,7 +196,6 @@ def train_xg_model(
 
 
 def parse_cli() -> argparse.Namespace:
-    """Parse command line arguments for xG model training."""
     parser = argparse.ArgumentParser(
         description="Train a logistic regression model for xG prediction"
     )
@@ -272,7 +209,7 @@ def parse_cli() -> argparse.Namespace:
         "--output-path",
         type=str,
         default=None,
-        help="Path to save trained model (default: data/gold/xg_model.joblib)",
+        help="Path to save trained model (default: models/xg_model.joblib)",
     )
     parser.add_argument(
         "--test-size",

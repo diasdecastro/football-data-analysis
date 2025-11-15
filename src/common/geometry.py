@@ -1,8 +1,8 @@
 import math
 
 """ Geometry utilities for football pitch calculations """
-# Pitch in meters
-PITCH_X, PITCH_Y = 120.0, 80.0
+
+PITCH_X, PITCH_Y = 120.0, 80.0  # Pitch in meters
 GOAL_X, GOAL_Y = 120.0, 40.0  # center of goal on x-max line
 
 

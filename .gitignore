@@ -6,4 +6,5 @@ __pycache__/
 data/*
 !data/bronze/
 !data/bronze/statsbomb_open_data/
-Notes.md
+models/
+notes.md

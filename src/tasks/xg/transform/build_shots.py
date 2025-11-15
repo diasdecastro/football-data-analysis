@@ -65,17 +65,6 @@ def _iterate_matches_rows(
 ) -> Iterator[Dict]:
     """
     Yields match rows from the StatsBomb matches dataset.
-    Args: (
-        comps: set of competition_ids to filter
-        seasons: set of season_ids to filter
-    )
-    Yields: {
-        "match_id": int,
-        "competition_id": int,
-        "season_id": int,
-        "home_team_id": int,
-        "away_team_id": int,
-    }
     """
     matches_dir = BRONZE_ROOT / "matches"
     if not matches_dir.exists():
@@ -116,8 +105,6 @@ def _iterate_matches_rows(
 def _iterate_shots_for_match(match_row: Dict) -> Iterator[Shot]:
     """
     Yields Shot objects for all shot events in the given match.
-    Args: match_row: object with match data
-    Yields: Shot objects
     """
     match_id = match_row["match_id"]
     events_path = BRONZE_ROOT / "events" / f"{match_id}.json"
@@ -204,14 +191,6 @@ def build_shots(
 ) -> pd.DataFrame:
     """
     Build the silver shots table from StatsBomb Open Data.
-
-    Args:
-        comps: list/set of competition_ids to include (None = all)
-        seasons: list/set of season_ids to include (None = all)
-        out_path: override output path (defaults to data/silver/shots.parquet)
-
-    Returns:
-        DataFrame with one row per shot.
     """
     comps_set = set(comps) if comps else None
     seasons_set = set(seasons) if seasons else None

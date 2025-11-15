@@ -1,17 +1,3 @@
-"""
-Lookup utilities for StatsBomb Open Data.
-
-Provides:
-- get_competition_id(name)
-- get_competition_name(id)
-- get_season_id(competition_id, season_name)
-- get_season_name(competition_id, season_id)
-- get_team_id(name)
-- get_team_name(id)
-- get_player_id(name)
-- get_player_name(id)
-"""
-
 from __future__ import annotations
 
 import json
@@ -46,7 +32,6 @@ def _load_competitions() -> List[dict]:
 
 
 def get_competition_id(name: str) -> Optional[int]:
-    """Return competition_id for competition name."""
     name = name.lower().strip()
     for c in _load_competitions():
         if c["competition_name"].lower() == name:
@@ -62,12 +47,10 @@ def get_competition_name(comp_id: int) -> Optional[str]:
 
 
 def get_seasons_for_competition(comp_id: int) -> List[dict]:
-    """Return all seasons for a given competition_id."""
     return [c for c in _load_competitions() if c["competition_id"] == comp_id]
 
 
 def get_season_id(comp_id: int, season_name: str) -> Optional[int]:
-    """Map season name (e.g. '2022/2023') to season_id."""
     season_name = season_name.lower().strip()
     for c in get_seasons_for_competition(comp_id):
         if c["season_name"].lower() == season_name:
@@ -91,7 +74,6 @@ def get_season_name(comp_id: int, season_id: int) -> Optional[str]:
 def _load_all_teams() -> Dict[int, str]:
     """
     Extract team_id → name by scanning all matches in the bronze data.
-    StatsBomb does not supply a central team list, so we gather it ourselves.
     """
     teams = {}
     matches_dir = BRONZE_ROOT / "matches"
