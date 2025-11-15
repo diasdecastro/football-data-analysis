@@ -1,0 +1,80 @@
+"""
+src/serve/schemas.py
+
+Pydantic schemas for request/response validation.
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+class ShotRequest(BaseModel):
+    """
+    Request schema for xG prediction.
+
+    Coordinates use StatsBomb's system:
+    - X: 0-120 (goal at x=120)
+    - Y: 0-80 (center at y=40)
+    """
+
+    x: float = Field(
+        ..., description="X-coordinate of shot (0-120, goal at 120)", ge=0, le=120
+    )
+    y: float = Field(
+        ..., description="Y-coordinate of shot (0-80, center at 40)", ge=0, le=80
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "x": 108.0,
+                    "y": 40.0,
+                    "description": "Penalty spot - central position",
+                },
+                {"x": 102.0, "y": 40.0, "description": "Edge of box - central"},
+                {"x": 108.0, "y": 10.0, "description": "Wing position - tight angle"},
+            ]
+        }
+    }
+
+
+class ShotResponse(BaseModel):
+    """
+    Response schema for xG prediction.
+    """
+
+    xG: float = Field(..., description="Expected goals probability (0-1)", ge=0, le=1)
+    shot_distance: float = Field(
+        ..., description="Distance from shot location to goal (yards)"
+    )
+    shot_angle: float = Field(..., description="Shooting angle (degrees)")
+    quality: str = Field(..., description="Shot quality interpretation")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "xG": 0.2456,
+                    "shot_distance": 12.0,
+                    "shot_angle": 18.43,
+                    "quality": "Good",
+                }
+            ]
+        }
+    }
+
+
+class HealthResponse(BaseModel):
+    """Health check response."""
+
+    status: str = Field(..., description="Service status")
+    model_loaded: bool = Field(..., description="Whether xG model is loaded")
+    version: str = Field(default="1.0.0", description="API version")
+
+
+class ErrorResponse(BaseModel):
+    """Error response schema."""
+
+    error: str = Field(..., description="Error message")
+    detail: Optional[str] = Field(None, description="Detailed error information")

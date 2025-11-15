@@ -22,6 +22,13 @@ A project for analyzing football data using StatsBomb open data for learning pur
 
 This project implements a data pipeline for football analytics, focusing on Expected Goals (xG) modeling using StatsBomb data. The architecture follows a medallion data structure (bronze → silver → gold) for data processing and includes machine learning components for predictive modeling.
 
+## Starting the API
+To start the FastAPI server for xG prediction, run the following command:
+
+```bashuvicorn src.serve.app:app --host
+uvicorn src.serve.app:app --host 0.0.0.0 --port 8000
+```
+
 ## Expected Goals (xG)
 
 ### Build shots data (silver)
