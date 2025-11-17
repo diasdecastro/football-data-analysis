@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xG Calculator - Football Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .pitch-container {
+            position: relative;
+        }
+
+        .pitch-label {
+            text-align: center;
+            color: #4a5568;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        #pitch {
+            width: 100%;
+            max-width: 700px;
+            border: 3px solid #2d3748;
+            border-radius: 10px;
+            cursor: crosshair;
+            background: #48bb78;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .info-panel {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .info-section {
+            margin-bottom: 25px;
+        }
+
+        .info-section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .xg-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .xg-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .xg-percentage {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .quality-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-top: 10px;
+            font-size: 0.95em;
+        }
+
+        .quality-excellent { background: #48bb78; color: white; }
+        .quality-good { background: #4299e1; color: white; }
+        .quality-average { background: #ed8936; color: white; }
+        .quality-poor { background: #f56565; color: white; }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .instructions {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .instructions h4 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            color: #4a5568;
+            line-height: 1.8;
+        }
+
+        .shot-marker {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #f56565;
+            border: 3px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #f56565;
+            display: none;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #718096;
+            font-size: 0.9em;
+        }
+
+        .coordinates-display {
+            background: #edf2f7;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚽ Expected Goals (xG) Calculator</h1>
+        <p class="subtitle">Click anywhere on the pitch to calculate shot probability</p>
+
+        <div class="main-content">
+            <!-- Pitch Section -->
+            <div class="pitch-container">
+                <div class="pitch-label">🏟️ Football Pitch (Click to Place Shot)</div>
+                <canvas id="pitch" width="700" height="467"></canvas>
+                <div class="instructions">
+                    <h4>📋 How to Use:</h4>
+                    <ul>
+                        <li>Click anywhere on the pitch to place a shot</li>
+                        <li>The xG probability will be calculated instantly</li>
+                        <li>Try different positions to see how location affects xG</li>
+                        <li>The goal is on the right side (120, 40 center)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <div class="info-section">
+                    <h3>🎯 Prediction</h3>
+                    <div class="xg-display">
+                        <div class="xg-percentage">Expected Goals</div>
+                        <div class="xg-value" id="xg-value">--</div>
+                        <div class="xg-percentage" id="xg-percentage">Click on pitch</div>
+                        <div id="quality-badge"></div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>📊 Shot Details</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Distance to Goal</span>
+                        <span class="stat-value" id="distance-value">--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Shooting Angle</span>
+                        <span class="stat-value" id="angle-value">--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Position</span>
+                        <span class="stat-value" id="position-value">--</span>
+                    </div>
+                    <div class="coordinates-display" id="coordinates">
+                        Coordinates: --
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>ℹ️ About xG</h3>
+                    <p style="color: #4a5568; line-height: 1.6; font-size: 0.95em;">
+                        Expected Goals (xG) measures the probability that a shot will result in a goal, 
+                        based on historical data. It considers the distance and angle to the goal.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+
+        <div class="footer">
+            <p>Powered by StatsBomb Open Data | Built with FastAPI & scikit-learn</p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000';
+        const PITCH_WIDTH = 120;
+        const PITCH_HEIGHT = 80;
+
+        // Canvas setup
+        const canvas = document.getElementById('pitch');
+        const ctx = canvas.getContext('2d');
+        let shotMarker = null;
+
+        // Draw the football pitch
+        function drawPitch() {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Grass
+            ctx.fillStyle = '#48bb78';
+            ctx.fillRect(0, 0, width, height);
+
+            // White lines
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+
+            // Outer boundary
+            ctx.strokeRect(10, 10, width - 20, height - 20);
+
+            // Center line
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 10);
+            ctx.lineTo(width / 2, height - 10);
+            ctx.stroke();
+
+            // Center circle
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, 50, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // Center spot
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+
+            // Penalty box (right side)
+            const penaltyBoxWidth = 100;
+            const penaltyBoxHeight = 220;
+            ctx.strokeRect(
+                width - penaltyBoxWidth - 10,
+                (height - penaltyBoxHeight) / 2,
+                penaltyBoxWidth,
+                penaltyBoxHeight
+            );
+
+            // Six-yard box (right side)
+            const sixYardWidth = 35;
+            const sixYardHeight = 120;
+            ctx.strokeRect(
+                width - sixYardWidth - 10,
+                (height - sixYardHeight) / 2,
+                sixYardWidth,
+                sixYardHeight
+            );
+
+            // Penalty spot (right side)
+            const penaltySpotX = width - 70;
+            const penaltySpotY = height / 2;
+            ctx.beginPath();
+            ctx.arc(penaltySpotX, penaltySpotY, 3, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Goal (right side)
+            ctx.strokeStyle = '#e53e3e';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(width - 10, height / 2 - 40);
+            ctx.lineTo(width - 10, height / 2 + 40);
+            ctx.stroke();
+
+            // Goal label
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GOAL', width - 40, height / 2);
+        }
+
+        // Convert canvas coordinates to pitch coordinates
+        function canvasToPitch(canvasX, canvasY) {
+            const width = canvas.width;
+            const height = canvas.height;
+
+            const x = (canvasX / width) * PITCH_WIDTH;
+            const y = (canvasY / height) * PITCH_HEIGHT;
+
+            return { x: x, y: y };
+        }
+
+        // Place shot marker
+        function placeMarker(canvasX, canvasY) {
+            // Remove old marker
+            if (shotMarker) {
+                shotMarker.remove();
+            }
+
+            // Create new marker
+            shotMarker = document.createElement('div');
+            shotMarker.className = 'shot-marker';
+            shotMarker.style.left = canvasX + canvas.offsetLeft + 'px';
+            shotMarker.style.top = canvasY + canvas.offsetTop + 'px';
+            canvas.parentElement.appendChild(shotMarker);
+        }
+
+        // Update UI with prediction
+        function updateUI(data, pitchCoords) {
+            document.getElementById('xg-value').textContent = data.xG.toFixed(4);
+            document.getElementById('xg-percentage').textContent = `${(data.xG * 100).toFixed(2)}% chance`;
+            document.getElementById('distance-value').textContent = `${data.shot_distance.toFixed(1)} yards`;
+            document.getElementById('angle-value').textContent = `${data.shot_angle.toFixed(1)}°`;
+            document.getElementById('position-value').textContent = `(${pitchCoords.x.toFixed(1)}, ${pitchCoords.y.toFixed(1)})`;
+            document.getElementById('coordinates').textContent = `Coordinates: X=${pitchCoords.x.toFixed(1)}, Y=${pitchCoords.y.toFixed(1)}`;
+
+            // Quality badge
+            const qualityBadge = document.getElementById('quality-badge');
+            const qualityClass = `quality-${data.quality.toLowerCase()}`;
+            qualityBadge.className = `quality-badge ${qualityClass}`;
+            qualityBadge.textContent = `${data.quality} Shot`;
+        }
+
+        // Show error
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Calculate xG
+        async function calculateXG(pitchX, pitchY) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/xg/score`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        x: pitchX,
+                        y: pitchY
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error calculating xG:', error);
+                showError(`Failed to calculate xG: ${error.message}. Make sure the API server is running.`);
+                return null;
+            }
+        }
+
+        // Handle pitch click
+        canvas.addEventListener('click', async (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const canvasX = event.clientX - rect.left;
+            const canvasY = event.clientY - rect.top;
+
+            // Convert to pitch coordinates
+            const pitchCoords = canvasToPitch(canvasX, canvasY);
+
+            // Place marker
+            placeMarker(canvasX, canvasY);
+
+            // Show loading state
+            canvas.classList.add('loading');
+
+            // Calculate xG
+            const result = await calculateXG(pitchCoords.x, pitchCoords.y);
+
+            // Remove loading state
+            canvas.classList.remove('loading');
+
+            // Update UI
+            if (result) {
+                updateUI(result, pitchCoords);
+            }
+        });
+
+        // Initialize
+        drawPitch();
+
+        // Test API connection on load
+        fetch(`${API_BASE_URL}/health`)
+            .then(response => response.json())
+            .then(data => console.log('✅ API connected:', data))
+            .catch(error => {
+                console.error('❌ API connection failed:', error);
+                showError('Warning: Cannot connect to API server. Make sure it is running on http://localhost:8000');
+            });
+    </script>
+</body>
+</html>

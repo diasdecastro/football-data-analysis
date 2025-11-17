@@ -1,6 +1,7 @@
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from src.serve.routers import xg_router
 from src.serve.loaders import get_xg_model
@@ -29,8 +30,20 @@ app.include_router(xg_router.router)
 
 @app.get("/", include_in_schema=False)
 async def root():
-    """Redirect root to API documentation."""
-    return RedirectResponse(url="/docs")
+    """Redirect root to visualization page."""
+    return RedirectResponse(url="/visualize")
+
+
+@app.get("/visualize", include_in_schema=False)
+async def visualize():
+    """Serve the interactive xG visualization page."""
+    # Serve the HTML file from the static directory
+    html_path = Path(__file__).parent / "static" / "index.html"
+    if html_path.exists():
+        return FileResponse(html_path)
+    else:
+        # Fallback redirect to docs if static file not found
+        return RedirectResponse(url="/docs")
 
 
 @app.get("/health")
