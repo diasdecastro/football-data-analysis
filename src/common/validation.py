@@ -5,15 +5,6 @@ import pandas as pd
 
 
 def require_columns(df: pd.DataFrame, columns: List[str]) -> None:
-    """Ensure that required columns exist in the DataFrame.
-
-    Args:
-        df: DataFrame to check
-        columns: List of required column names
-
-    Raises:
-        ValueError: If any required columns are missing
-    """
     missing = set(columns) - set(df.columns)
     if missing:
         raise ValueError(f"Missing required columns: {sorted(missing)}")
@@ -26,18 +17,6 @@ def assert_bounds(
     max_val: Optional[Union[int, float]] = None,
     allow_null: bool = True,
 ) -> None:
-    """Assert that values in a column are within specified bounds.
-
-    Args:
-        df: DataFrame to check
-        column: Column name to validate
-        min_val: Minimum allowed value (inclusive)
-        max_val: Maximum allowed value (inclusive)
-        allow_null: Whether to allow null/NaN values
-
-    Raises:
-        ValueError: If values are outside bounds
-    """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
 
@@ -46,7 +25,6 @@ def assert_bounds(
     if not allow_null and series.isnull().any():
         raise ValueError(f"Column '{column}' contains null values")
 
-    # Filter out null values for bounds checking
     non_null_series = series.dropna()
 
     if min_val is not None and (non_null_series < min_val).any():
@@ -63,15 +41,6 @@ def assert_bounds(
 
 
 def assert_no_duplicates(df: pd.DataFrame, columns: List[str]) -> None:
-    """Assert that there are no duplicate rows for the given columns.
-
-    Args:
-        df: DataFrame to check
-        columns: List of column names that should be unique together
-
-    Raises:
-        ValueError: If duplicates are found
-    """
     require_columns(df, columns)
 
     duplicates = df.duplicated(subset=columns, keep=False)
@@ -83,15 +52,6 @@ def assert_no_duplicates(df: pd.DataFrame, columns: List[str]) -> None:
 
 
 def assert_valid_types(df: pd.DataFrame, type_map: dict) -> None:
-    """Assert that columns have the expected data types.
-
-    Args:
-        df: DataFrame to check
-        type_map: Dictionary mapping column names to expected types
-
-    Raises:
-        ValueError: If any columns have unexpected types
-    """
     for column, expected_type in type_map.items():
         if column not in df.columns:
             continue
