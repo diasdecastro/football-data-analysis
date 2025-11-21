@@ -558,7 +558,7 @@
                 data.models.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model.model_id;
-                    option.textContent = model.name || model.model_id;
+                    option.textContent = model.display_name || model.name || model.model_id;
                     if (model.model_id === data.current_model) {
                         option.selected = true;
                     }
@@ -579,7 +579,7 @@
         function updateModelInfo(model) {
             if (!model) return;
             document.getElementById('current-model-name').textContent = 
-                model.name || model.model_id;
+                model.display_name || model.name || model.model_id;
         }
 
         // Change model
@@ -594,7 +594,7 @@
                 
                 currentModel = modelId;
                 updateModelInfo(data.selected_model);
-                showSuccess(`Switched to model: ${data.selected_model.name}`);
+                showSuccess(`Switched to model: ${data.selected_model.display_name || data.selected_model.name}`);
                 
                 // Reload heatmap if visible
                 if (heatmapVisible) {
@@ -612,8 +612,8 @@
             spinner.style.display = 'block';
             
             try {
-                const modelParam = currentModel ? `?model_id=${currentModel}` : '';
-                const response = await fetch(`${API_BASE_URL}/v1/xg/heatmap${modelParam}&resolution=60`);
+                const modelParam = currentModel ? `?model_id=${currentModel}&resolution=60` : '?resolution=60';
+                const response = await fetch(`${API_BASE_URL}/v1/xg/heatmap${modelParam}`);
                 
                 if (!response.ok) throw new Error('Failed to generate heatmap');
                 

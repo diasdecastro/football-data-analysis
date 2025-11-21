@@ -1,11 +1,10 @@
-# src/tasks/xg/train/train_xg.py
 from __future__ import annotations
 
 import argparse
-import joblib
 from pathlib import Path
 from typing import Tuple
 
+import joblib
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -15,11 +14,17 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_auc_score,
-    classification_report,
-    confusion_matrix,
 )
 
 from src.common import io
+from src.common.mlflow_utils import (
+    log_dataset_info,
+    log_model_coefficients,
+    log_additional_metrics,
+)
+
+import mlflow
+from mlflow import sklearn as mlflow_sklearn
 
 
 def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
@@ -29,13 +34,14 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
     path = features_path or io.xg_features_gold_path()
     features = io.read_table(path)
 
-    required_cols = ["shot_distance", "shot_angle", "is_goal"]
+    required_cols = ["shot_distance", "shot_angle", "body_part", "is_goal"]
     missing_cols = [col for col in required_cols if col not in features.columns]
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
 
-    print(f"📊 Loaded {len(features):,} shots from {path}")
-    print(f"   Goal rate: {features['is_goal'].mean():.1%}")
+    print(
+        f"📊 Loaded {len(features):,} shots (goal rate: {features['is_goal'].mean():.1%})"
+    )
 
     return features
 
@@ -43,20 +49,25 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
 def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Prepare features and target for training.
+    One-hot encodes body_part into binary features.
     """
 
-    df_clean = df.dropna(subset=["shot_distance", "shot_angle", "is_goal"])
+    df_clean = df.dropna(subset=["shot_distance", "shot_angle", "body_part", "is_goal"])
 
+    #  numeric features
     X = df_clean[["shot_distance", "shot_angle"]].copy()
+
+    # encode body_part (categorical)
+    body_part_dummies = pd.get_dummies(
+        df_clean["body_part"], prefix="body_part", drop_first=False
+    )
+
+    # Combine numeric and categorical features
+    X = pd.concat([X, body_part_dummies], axis=1)
+
     y = df_clean["is_goal"].copy()
 
-    print(f"📈 Features shape: {X.shape}")
-    print(
-        f"   Distance range: {X['shot_distance'].min():.1f} - {X['shot_distance'].max():.1f}"
-    )
-    print(
-        f"   Angle range: {X['shot_angle'].min():.1f}° - {X['shot_angle'].max():.1f}°"
-    )
+    print(f"📈 Prepared {X.shape[0]:,} samples with {X.shape[1]} features")
 
     return X, y
 
@@ -69,29 +80,22 @@ def train_logistic_regression(
     max_iter: int = 1000,
 ) -> Tuple[LogisticRegression, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
-    Train a logistic regression model for xG prediction. (TBI: choose different model types)
+    Train a logistic regression model for xG prediction.
     """
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
 
-    print(f"🔄 Training set: {len(X_train):,} samples")
-    print(f"   Test set: {len(X_test):,} samples")
-
     model = LogisticRegression(
         random_state=random_state,
         max_iter=max_iter,
-        solver="liblinear",  # Good for small datasets
+        solver="liblinear",
     )
 
     model.fit(X_train, y_train)
 
-    print("✅ Model trained successfully")
-    print(
-        f"   Coefficients: distance={model.coef_[0][0]:.4f}, angle={model.coef_[0][1]:.4f}"
-    )
-    print(f"   Intercept: {model.intercept_[0]:.4f}")
+    print(f"✅ Model trained ({len(X_train):,} train / {len(X_test):,} test)")
 
     return model, X_train, X_test, y_train, y_test
 
@@ -130,22 +134,9 @@ def evaluate_model(
         },
     }
 
-    print("\n📊 Model Performance:")
-    print("=" * 50)
-    print(f"{'Metric':<12} {'Train':<10} {'Test':<10}")
-    print("-" * 32)
-    for metric in ["accuracy", "precision", "recall", "f1", "roc_auc"]:
-        train_val = metrics["train"][metric]
-        test_val = metrics["test"][metric]
-        print(f"{metric.capitalize():<12} {train_val:<10.3f} {test_val:<10.3f}")
-
-    print("\n📋 Detailed Test Set Report:")
-    print(classification_report(y_test, y_test_pred))
-
-    print("🎯 Confusion Matrix (Test Set):")
-    cm = confusion_matrix(y_test, y_test_pred)
-    print(f"   [[TN={cm[0,0]}, FP={cm[0,1]}],")
-    print(f"    [FN={cm[1,0]}, TP={cm[1,1]}]]")
+    print(
+        f"📊 Test Performance: ROC-AUC={metrics['test']['roc_auc']:.3f}, Accuracy={metrics['test']['accuracy']:.3f}"
+    )
 
     return metrics
 
@@ -161,7 +152,6 @@ def save_model(model: LogisticRegression, output_path: Path | None = None) -> Pa
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     joblib.dump(model, output_path)
-    print(f"💾 Model saved to: {output_path}")
 
     return output_path
 
@@ -174,30 +164,74 @@ def train_xg_model(
     max_iter: int = 1000,
 ) -> Tuple[LogisticRegression, dict, Path]:
     """
-    Train xG model.
+    Train xG model and log the run to MLflow.
     """
-    print("🚀 Starting xG Model Training Pipeline")
-    print("=" * 50)
+    print("🚀 Starting xG Training Pipeline")
 
-    df = load_training_data(features_path)
+    mlflow.set_experiment("xG Training")
 
-    X, y = prepare_features_target(df)
+    run_name_parts = ["xg_logreg"]
+    if features_path is not None:
+        run_name_parts.append(features_path.stem)
+    run_name = "_".join(run_name_parts)
 
-    model, X_train, X_test, y_train, y_test = train_logistic_regression(
-        X, y, test_size=test_size, random_state=random_state, max_iter=max_iter
-    )
+    with mlflow.start_run(run_name=run_name):
+        mlflow.set_tag("task", "xg")
+        mlflow.set_tag("model_family", "logistic_regression")
 
-    metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
+        mlflow.log_param("test_size", test_size)
+        mlflow.log_param("random_state", random_state)
+        mlflow.log_param("max_iter", max_iter)
+        if features_path is not None:
+            mlflow.log_param("features_path", str(features_path))
+        else:
+            mlflow.log_param("features_path", str(io.xg_features_gold_path()))
 
-    saved_path = save_model(model, output_path)
+        df = load_training_data(features_path)
+        X, y = prepare_features_target(df)
 
-    print("\n🎉 Training pipeline completed successfully!")
-    return model, metrics, saved_path
+        log_dataset_info(df, y)
+
+        model, X_train, X_test, y_train, y_test = train_logistic_regression(
+            X, y, test_size=test_size, random_state=random_state, max_iter=max_iter
+        )
+
+        log_dataset_info(df, y, X_train, X_test, y_train, y_test)
+
+        log_model_coefficients(model)
+
+        metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
+
+        for split_name, split_metrics in metrics.items():
+            for metric_name, value in split_metrics.items():
+                mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
+
+        y_test_proba = model.predict_proba(X_test)[:, 1]
+        log_additional_metrics(y_test, y_test_proba)
+
+        saved_path = save_model(model, output_path)
+
+        mlflow.log_artifact(str(saved_path), artifact_path="artifacts")
+
+        input_example = X_test.head(1)
+
+        REGISTERED_MODEL_NAME = "xG Bundesliga"
+
+        mlflow_sklearn.log_model(
+            sk_model=model,
+            artifact_path="model",
+            input_example=input_example,
+            registered_model_name=REGISTERED_MODEL_NAME,
+        )
+
+        print(f"🎉 Training complete! Model saved to {saved_path}")
+
+        return model, metrics, saved_path
 
 
 def parse_cli() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train a logistic regression model for xG prediction"
+        description="Train a logistic regression model for xG prediction (with MLflow logging)"
     )
     parser.add_argument(
         "--features-path",

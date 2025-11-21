@@ -23,6 +23,11 @@ class ShotRequest(BaseModel):
     y: float = Field(
         ..., description="Y-coordinate of shot (0-80, center at 40)", ge=0, le=80
     )
+    body_part: str = Field(
+        default="Right Foot",
+        description="Body part used for the shot",
+        pattern="^(Right Foot|Left Foot|Head|Other)$"
+    )
 
     model_config = {
         "json_schema_extra": {

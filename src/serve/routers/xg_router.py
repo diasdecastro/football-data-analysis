@@ -10,9 +10,7 @@ import pandas as pd
 import numpy as np
 import math
 import io
-import matplotlib
 
-matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -96,12 +94,23 @@ async def score_xg(
 
         shot_angle_deg = math.degrees(shot_angle_rad)
 
+        # Build features with one-hot encoded body_part
         features = pd.DataFrame(
             {
                 "shot_distance": [shot_distance],
                 "shot_angle": [shot_angle_rad],
+                "body_part_Head": [1 if shot.body_part == "Head" else 0],
+                "body_part_Left Foot": [1 if shot.body_part == "Left Foot" else 0],
+                "body_part_Other": [1 if shot.body_part == "Other" else 0],
+                "body_part_Right Foot": [1 if shot.body_part == "Right Foot" else 0],
             }
         )
+
+        if model is None or getattr(model, "predict_proba", None) is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Model does not support probability predictions",
+            )
 
         xg_probability = model.predict_proba(features)[0, 1]
 
@@ -151,9 +160,23 @@ async def generate_heatmap(
                 shot_distance = distance_to_goal(x, y)
                 shot_angle_rad = shot_angle(x, y)
 
+                # Use Right Foot as default for heatmap
                 features = pd.DataFrame(
-                    {"shot_distance": [shot_distance], "shot_angle": [shot_angle_rad]}
+                    {
+                        "shot_distance": [shot_distance],
+                        "shot_angle": [shot_angle_rad],
+                        "body_part_Head": [0],
+                        "body_part_Left Foot": [0],
+                        "body_part_Other": [0],
+                        "body_part_Right Foot": [1],
+                    }
                 )
+
+                if model is None or getattr(model, "predict_proba", None) is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Model does not support probability predictions",
+                    )
 
                 xg_grid[i, j] = model.predict_proba(features)[0, 1]
 

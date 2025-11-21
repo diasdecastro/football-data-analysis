@@ -15,6 +15,7 @@ FEATURE_COLS = [
     "player_id",
     "shot_distance",
     "shot_angle",
+    "body_part",
     "is_goal",
 ]
 
@@ -39,6 +40,7 @@ def build_xg_features(
             "player_id",
             "distance_to_goal",
             "shot_angle",
+            "body_part",
             "is_goal",
         ],
     )
@@ -49,7 +51,7 @@ def build_xg_features(
 
     # 4) Final feature frame with renamed geometry columns
     features = shots.rename(columns={"distance_to_goal": "shot_distance"})[
-        ["match_id", "team_id", "player_id", "shot_distance", "shot_angle", "is_goal"]
+        ["match_id", "team_id", "player_id", "shot_distance", "shot_angle", "body_part", "is_goal"]
     ].reset_index(drop=True)
 
     # 5) Persist to gold
