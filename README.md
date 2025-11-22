@@ -2,7 +2,7 @@
 
 > **End-to-End Machine Learning Project for Expected Goals (xG) Prediction**
 >
-> An MVP demonstrating a complete ML pipeline from data ingestion to model deployment. Future roadmap includes MLOps capabilities with experiment tracking, model versioning, and automated retraining.
+> An MVP demonstrating a complete ML pipeline from data ingestion to model deployment. Includes MLflow for experiment tracking and model versioning. Future roadmap includes automated retraining, monitoring, and cloud deployment.
 
 ---
 
@@ -26,7 +26,7 @@ This project implements a **complete end-to-end machine learning system** for fo
 
 - **Complete ML Pipeline**: Data ingestion → Feature engineering → Model training → Serving  
 - **Medallion Architecture**: Bronze/Silver/Gold data layers for data quality and governance  
-- **Model Persistence**: Trained models saved and versioned for reproducibility  
+- **MLflow Integration**: Experiment tracking, model registry, and version management
 - **Comprehensive Evaluation**: Multiple metrics (accuracy, precision, recall, F1, ROC-AUC)  
 - **Validation & Testing**: Data validation utilities and schema enforcement (Testing TBI)
 - **Scalable Design**: Modular codebase ready for extension
@@ -82,9 +82,9 @@ This is a **working, deployable system** that can be used for Expected Goals (xG
 
 ### Next Evolution: **MLOps Transformation**
 
-The current system is intentionally designed to evolve into a production MLOps platform. The architecture supports adding:
-- Experiment tracking (MLflow)
-- Model versioning and registry
+The current system is intentionally designed to evolve into a production MLOps platform. MLflow is now integrated for experiment tracking and model registry. The architecture supports adding:
+- ✅ Experiment tracking (MLflow)
+- ✅ Model versioning and registry (MLflow)
 - Automated retraining pipelines
 - Monitoring and drift detection
 - CI/CD automation
@@ -217,6 +217,33 @@ python -m src.tasks.xg.train.train_xg
 uvicorn src.serve.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
+### MLflow Tracking & Model Registry
+
+All training runs are automatically logged to MLflow with metrics, parameters, and model artifacts.
+
+**Start MLflow UI:**
+
+```bash
+mlflow ui
+```
+
+Then open your browser to: **http://localhost:5000**
+
+The MLflow UI provides:
+- **Experiments**: View all training runs under "xG Training" experiment
+- **Metrics Comparison**: Compare ROC-AUC, accuracy, and other metrics across runs
+- **Model Registry**: Browse all registered "xG Bundesliga" model versions
+- **Artifacts**: Download trained models, plots, and other artifacts
+- **Parameters**: See hyperparameters used for each training run
+
+**Model Versioning:**
+
+Each training run automatically registers a new model version:
+- **Baseline (v1)**: Distance + Angle only (ROC-AUC: 0.735)
+- **Current (v2)**: Distance + Angle + Body Part (ROC-AUC: 0.784)
+
+The API automatically discovers all registered model versions and allows switching between them via the `/v1/xg/models` endpoint.
+
 ### Test the API
 
 ```bash
@@ -273,7 +300,7 @@ The current system provides a solid foundation for evolution into a production-g
 ### Phase 4: MLOps Integration
 *Transform into production ML platform*
 
-- [ ] **MLflow**: Experiment tracking and model registry
+- [x] **MLflow**: Experiment tracking and model registry ✅
 - [ ] **DVC**: Data version control
 - [ ] **Model monitoring**: Drift detection and performance tracking
 - [ ] **A/B testing**: Compare model versions in production
