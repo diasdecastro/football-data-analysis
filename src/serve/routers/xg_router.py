@@ -27,6 +27,38 @@ from src.serve.schemas import ShotRequest, ShotResponse, HealthResponse
 router = APIRouter(prefix="/v1/xg", tags=["xG (Expected Goals)"])
 
 
+def build_features_for_model(
+    model, shot_distance: float, shot_angle: float, body_part: str = "Right Foot"
+) -> pd.DataFrame:
+    """
+    Dynamically build feature DataFrame based on model's expected features.
+    """
+    feature_names = getattr(model, "feature_names_in_", None)
+
+    if feature_names is None:
+        # Fallback
+        return pd.DataFrame(
+            {
+                "shot_distance": [shot_distance],
+                "shot_angle": [shot_angle],
+            }
+        )
+
+    features_dict = {}
+
+    if "shot_distance" in feature_names:
+        features_dict["shot_distance"] = [shot_distance]
+    if "shot_angle" in feature_names:
+        features_dict["shot_angle"] = [shot_angle]
+
+    body_part_features = [f for f in feature_names if f.startswith("body_part_")]
+    for feat in body_part_features:
+        part_name = feat.replace("body_part_", "")
+        features_dict[feat] = [1 if body_part == part_name else 0]
+
+    return pd.DataFrame(features_dict)
+
+
 def interpret_xg(xg_value: float) -> str:
     if xg_value > 0.3:
         return "Excellent"
@@ -94,16 +126,8 @@ async def score_xg(
 
         shot_angle_deg = math.degrees(shot_angle_rad)
 
-        # Build features with one-hot encoded body_part
-        features = pd.DataFrame(
-            {
-                "shot_distance": [shot_distance],
-                "shot_angle": [shot_angle_rad],
-                "body_part_Head": [1 if shot.body_part == "Head" else 0],
-                "body_part_Left Foot": [1 if shot.body_part == "Left Foot" else 0],
-                "body_part_Other": [1 if shot.body_part == "Other" else 0],
-                "body_part_Right Foot": [1 if shot.body_part == "Right Foot" else 0],
-            }
+        features = build_features_for_model(
+            model, shot_distance, shot_angle_rad, shot.body_part
         )
 
         if model is None or getattr(model, "predict_proba", None) is None:
@@ -160,16 +184,9 @@ async def generate_heatmap(
                 shot_distance = distance_to_goal(x, y)
                 shot_angle_rad = shot_angle(x, y)
 
-                # Use Right Foot as default for heatmap
-                features = pd.DataFrame(
-                    {
-                        "shot_distance": [shot_distance],
-                        "shot_angle": [shot_angle_rad],
-                        "body_part_Head": [0],
-                        "body_part_Left Foot": [0],
-                        "body_part_Other": [0],
-                        "body_part_Right Foot": [1],
-                    }
+                # Dynamically build features (use Right Foot as default for heatmap)
+                features = build_features_for_model(
+                    model, shot_distance, shot_angle_rad, "Right Foot"
                 )
 
                 if model is None or getattr(model, "predict_proba", None) is None:
