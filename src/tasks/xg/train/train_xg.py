@@ -162,6 +162,7 @@ def train_xg_model(
     test_size: float = 0.2,
     random_state: int = 42,
     max_iter: int = 1000,
+    run_name: str | None = None,
 ) -> Tuple[LogisticRegression, dict, Path]:
     """
     Train xG model and log the run to MLflow.
@@ -169,11 +170,6 @@ def train_xg_model(
     print("🚀 Starting xG Training Pipeline")
 
     mlflow.set_experiment("xG Training")
-
-    run_name_parts = ["xg_logreg"]
-    if features_path is not None:
-        run_name_parts.append(features_path.stem)
-    run_name = "_".join(run_name_parts)
 
     with mlflow.start_run(run_name=run_name):
         mlflow.set_tag("task", "xg")
@@ -189,6 +185,12 @@ def train_xg_model(
 
         df = load_training_data(features_path)
         X, y = prepare_features_target(df)
+
+        # Log feature information as tags
+        num_features = X.shape[1]
+        feature_list = ", ".join(X.columns.tolist())
+        mlflow.set_tag("num_features", num_features)
+        mlflow.set_tag("features", feature_list)
 
         log_dataset_info(df, y)
 
@@ -234,6 +236,12 @@ def parse_cli() -> argparse.Namespace:
         description="Train a logistic regression model for xG prediction (with MLflow logging)"
     )
     parser.add_argument(
+        "--run-name",
+        type=str,
+        default=None,
+        help="MLflow run name (e.g., 'v1', 'v2', 'baseline'). If not provided, auto-generated.",
+    )
+    parser.add_argument(
         "--features-path",
         type=str,
         default=None,
@@ -276,4 +284,5 @@ if __name__ == "__main__":
         test_size=args.test_size,
         random_state=args.random_state,
         max_iter=args.max_iter,
+        run_name=args.run_name,
     )

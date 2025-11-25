@@ -197,9 +197,9 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### Option 1: Local Development
+### Step 1: Data Pipeline & Model Training
 
-Run the entire pipeline from raw data to trained model:
+Run the complete pipeline from raw data to trained model:
 
 ```bash
 # 1. Build shots data (Bronze → Silver)
@@ -211,49 +211,54 @@ python -m src.tasks.xg.transform.build_shots \
 python -m src.tasks.xg.features.features_xg
 
 # 3. Train model (Gold → Model)
-python -m src.tasks.xg.train.train_xg
-
-# 4. Start API server
-uvicorn src.serve.app:app --reload --host 0.0.0.0 --port 8000
-
-#5. Mlflow UI (port 5000)
-mlflow ui
+python -m src.tasks.xg.train.train_xg --run-name "v1" # Optional run name for MLflow
 ```
 
-### Option 2: Docker
+### Step 2: Serve the API
 
-Run the entire application in containers:
+Choose either local development or Docker deployment:
+
+**Option A: Local Development**
 
 ```bash
-# Build and start all services
-cd docker
-docker-compose up --build
+# Start API server
+uvicorn src.serve.app:app --reload --host 0.0.0.0 --port 8000
 
-# Or run in detached mode
-docker-compose up -d --build
-
-# Or run without building
-docker compose up -d
-
-# View logs
-docker-compose logs -f api
-docker-compose logs -f mlflow-ui
-
-# Stop services
-docker-compose down
+# Start MLflow UI (in another terminal)
+mlflow ui
 ```
 
 **Services:**
 - **API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
-- **MLflow UI**: http://localhost:5001 (http://localhost:5000 for local setup)
+- **MLflow UI**: http://localhost:5000
+
+**Option B: Docker Deployment**
+
+```bash
+# Build and start all services
+cd docker
+docker compose up -d --build
+
+# View logs
+docker compose logs -f api
+docker compose logs -f mlflow-ui
+
+# Stop services
+docker compose down
+```
+
+**Services:**
+- **API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **MLflow UI**: http://localhost:5001
 
 **Persistent Data:**
 
-The Docker setup mounts local directories for persistence:
+The Docker setup mounts local directories, so models and experiments trained on your host machine are automatically available in containers:
 - `mlruns/`: MLflow experiments and runs
 - `models/`: Trained model artifacts
-- `data/gold/` and `data/silver/`: Processed datasets
+- `data/gold/` and `data/silver/`: Processed datasets (read-only)
 
 ### MLflow Tracking & Model Registry
 
@@ -323,17 +328,8 @@ The current system provides a solid foundation for evolution into a production-g
 ### Phase 2: Enhanced Features
 *Improve model accuracy with additional context*
 
-- [ ] Shot type (open play, free kick, corner, etc.)
-- [ ] Body part used (foot, head, other)
-- [ ] Defensive pressure indicators
-- [ ] Player position/role
-- [ ] Game state (scoreline, time remaining)
-- [ ] Counter-attack detection
-- [ ] Home/away team context
-
 ### Phase 3: Advanced Modeling
-
-- [ ] Explore more sophisticated algorithms
+*Explore more sophisticated algorithms*
 
 ### Phase 4: MLOps Integration
 *Transform into production ML platform*
