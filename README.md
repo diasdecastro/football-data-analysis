@@ -197,7 +197,7 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### Complete Pipeline Execution
+### Option 1: Local Development
 
 Run the entire pipeline from raw data to trained model:
 
@@ -215,7 +215,42 @@ python -m src.tasks.xg.train.train_xg
 
 # 4. Start API server
 uvicorn src.serve.app:app --reload --host 0.0.0.0 --port 8000
+
+#5. Mlflow UI (port 5000)
+mlflow ui
 ```
+
+### Option 2: Docker
+
+Run the entire application in containers:
+
+```bash
+# Build and start all services
+cd docker
+docker-compose up --build
+
+# Or run in detached mode
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f api
+docker-compose logs -f mlflow-ui
+
+# Stop services
+docker-compose down
+```
+
+**Services:**
+- **API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **MLflow UI**: http://localhost:5001 (http://localhost:5000 for local setup)
+
+**Persistent Data:**
+
+The Docker setup mounts local directories for persistence:
+- `mlruns/`: MLflow experiments and runs
+- `models/`: Trained model artifacts
+- `data/gold/` and `data/silver/`: Processed datasets
 
 ### MLflow Tracking & Model Registry
 
@@ -300,7 +335,7 @@ The current system provides a solid foundation for evolution into a production-g
 ### Phase 4: MLOps Integration
 *Transform into production ML platform*
 
-- [x] **MLflow**: Experiment tracking and model registry ✅
+- [x] **MLflow**: Experiment tracking and model registry
 - [ ] **DVC**: Data version control
 - [ ] **Model monitoring**: Drift detection and performance tracking
 - [ ] **A/B testing**: Compare model versions in production
@@ -310,9 +345,9 @@ The current system provides a solid foundation for evolution into a production-g
 ### Phase 5: Production Deployment
 *Scale to production workloads*
 
-- [ ] Docker containerization
-- [ ] Cloud deployment
-- [ ] Monitoring and alerting
+- [x] **Docker containerization**
+- [ ] Cloud deployment (AWS/GCP/Azure)
+- [ ] Load balancing and auto-scaling
 
 ### Phase 6: Additional Models
 *Expand analytics capabilities*

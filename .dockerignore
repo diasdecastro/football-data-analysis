@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Documentation
+*.md
+!README.md
+doc/
+docs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Project specific
+tests/
+Notes.md
+.env
+
+# Large data files (keep only what's needed)
+data/bronze/statsbomb_open_data/img/
+data/bronze/statsbomb_open_data/doc/
