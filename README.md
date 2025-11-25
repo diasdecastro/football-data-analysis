@@ -99,7 +99,7 @@ The current system is intentionally designed to evolve into a production MLOps p
 3. Train an xG model with custom parameters
 4. Start the API server
 5. Make predictions via REST API or interactive docs
-6. Interactive visualization
+6. Interactive visualization (very barebones - not the focus of this project)
 7. Evaluate model performance with comprehensive metrics
 8. Process new competitions/seasons as data becomes available (not automated)
 
@@ -231,6 +231,9 @@ docker-compose up --build
 
 # Or run in detached mode
 docker-compose up -d --build
+
+# Or run without building
+docker compose up -d
 
 # View logs
 docker-compose logs -f api
