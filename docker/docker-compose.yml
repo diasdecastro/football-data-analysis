@@ -13,23 +13,12 @@ services:
       - XG_MODEL_STAGE=
       - PYTHONUNBUFFERED=1
     volumes:
-      # Mount MLflow runs and models for persistence
       - ../mlruns:/app/mlruns
       - ../models:/app/models
-      # Mount data directories (optional - for data updates)
       - ../data/gold:/app/data/gold:ro
       - ../data/silver:/app/data/silver:ro
     restart: unless-stopped
-    networks:
-      - football-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
 
-  # Optional: MLflow UI service
   mlflow-ui:
     image: python:3.12-slim
     container_name: football-mlflow-ui
@@ -40,11 +29,4 @@ services:
       - ../mlruns:/app/mlruns
     command: >
       sh -c "pip install mlflow && mlflow ui --host 0.0.0.0 --port 5001"
-    networks:
-      - football-net
-    depends_on:
-      - api
-
-networks:
-  football-net:
-    driver: bridge
+    restart: unless-stopped
