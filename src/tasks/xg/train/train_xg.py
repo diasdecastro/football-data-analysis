@@ -14,13 +14,13 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_auc_score,
+    confusion_matrix,
 )
 
 from src.common import io
 from src.common.mlflow_utils import (
     log_dataset_info,
     log_model_coefficients,
-    log_additional_metrics,
 )
 
 import mlflow
@@ -51,13 +51,12 @@ def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     Prepare features and target for training.
     One-hot encodes body_part into binary features.
     """
-
     df_clean = df.dropna(subset=["shot_distance", "shot_angle", "body_part", "is_goal"])
 
-    #  numeric features
+    # Numeric features
     X = df_clean[["shot_distance", "shot_angle"]].copy()
 
-    # encode body_part (categorical)
+    # Encode body_part (categorical)
     body_part_dummies = pd.get_dummies(
         df_clean["body_part"], prefix="body_part", drop_first=False
     )
@@ -117,6 +116,9 @@ def evaluate_model(
     y_train_proba = model.predict_proba(X_train)[:, 1]
     y_test_proba = model.predict_proba(X_test)[:, 1]
 
+    cm_train = confusion_matrix(y_train, y_train_pred)
+    cm_test = confusion_matrix(y_test, y_test_pred)
+
     metrics = {
         "train": {
             "accuracy": accuracy_score(y_train, y_train_pred),
@@ -124,6 +126,7 @@ def evaluate_model(
             "recall": recall_score(y_train, y_train_pred),
             "f1": f1_score(y_train, y_train_pred),
             "roc_auc": roc_auc_score(y_train, y_train_proba),
+            "confusion_matrix": cm_train,
         },
         "test": {
             "accuracy": accuracy_score(y_test, y_test_pred),
@@ -131,6 +134,7 @@ def evaluate_model(
             "recall": recall_score(y_test, y_test_pred),
             "f1": f1_score(y_test, y_test_pred),
             "roc_auc": roc_auc_score(y_test, y_test_proba),
+            "confusion_matrix": cm_test,
         },
     }
 
@@ -163,21 +167,30 @@ def train_xg_model(
     random_state: int = 42,
     max_iter: int = 1000,
     run_name: str | None = None,
+    experiment_name: str = "Default",
+    model_name: str = "xG Model",
 ) -> Tuple[LogisticRegression, dict, Path]:
     """
     Train xG model and log the run to MLflow.
     """
     print("🚀 Starting xG Training Pipeline")
 
-    mlflow.set_experiment("xG Training")
+    mlflow.set_experiment(experiment_name)
 
     with mlflow.start_run(run_name=run_name):
+        # Log tags for filtering
         mlflow.set_tag("task", "xg")
-        mlflow.set_tag("model_family", "logistic_regression")
+        mlflow.set_tag("model_type", "logistic_regression")
+        mlflow.set_tag("model_family", "linear")
+        mlflow.set_tag("framework", "sklearn")
 
+        # Log hyperparameters
         mlflow.log_param("test_size", test_size)
         mlflow.log_param("random_state", random_state)
         mlflow.log_param("max_iter", max_iter)
+        mlflow.log_param("solver", "liblinear")
+
+        # Log data source
         if features_path is not None:
             mlflow.log_param("features_path", str(features_path))
         else:
@@ -186,11 +199,14 @@ def train_xg_model(
         df = load_training_data(features_path)
         X, y = prepare_features_target(df)
 
-        # Log feature information as tags
+        # Log feature information
         num_features = X.shape[1]
-        feature_list = ", ".join(X.columns.tolist())
-        mlflow.set_tag("num_features", num_features)
-        mlflow.set_tag("features", feature_list)
+        feature_names = X.columns.tolist()
+        feature_list = ", ".join(feature_names)
+
+        mlflow.log_param("num_features", num_features)
+        mlflow.log_param("feature_names", feature_list)
+        mlflow.set_tag("features", feature_list)  # Also as tag for easy filtering
 
         log_dataset_info(df, y)
 
@@ -199,17 +215,22 @@ def train_xg_model(
         )
 
         log_dataset_info(df, y, X_train, X_test, y_train, y_test)
-
-        log_model_coefficients(model)
+        log_model_coefficients(model, feature_names)
 
         metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
 
         for split_name, split_metrics in metrics.items():
             for metric_name, value in split_metrics.items():
-                mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
+                if metric_name == "confusion_matrix":
+                    tn, fp, fn, tp = value.ravel()
+                    mlflow.log_metric(f"{split_name}_tn", int(tn))
+                    mlflow.log_metric(f"{split_name}_fp", int(fp))
+                    mlflow.log_metric(f"{split_name}_fn", int(fn))
+                    mlflow.log_metric(f"{split_name}_tp", int(tp))
+                else:
+                    mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
 
         y_test_proba = model.predict_proba(X_test)[:, 1]
-        log_additional_metrics(y_test, y_test_proba)
 
         saved_path = save_model(model, output_path)
 
@@ -217,16 +238,14 @@ def train_xg_model(
 
         input_example = X_test.head(1)
 
-        REGISTERED_MODEL_NAME = "xG Bundesliga"
-
         mlflow_sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             input_example=input_example,
-            registered_model_name=REGISTERED_MODEL_NAME,
+            registered_model_name=model_name,
         )
 
-        print(f"🎉 Training complete! Model saved to {saved_path}")
+        print(f"Training complete! Model saved to {saved_path}")
 
         return model, metrics, saved_path
 
@@ -239,7 +258,7 @@ def parse_cli() -> argparse.Namespace:
         "--run-name",
         type=str,
         default=None,
-        help="MLflow run name (e.g., 'v1', 'v2', 'baseline'). If not provided, auto-generated.",
+        help="MLflow run name (e.g., 'v3', 'v4'). If not provided, auto-generated.",
     )
     parser.add_argument(
         "--features-path",
@@ -271,6 +290,18 @@ def parse_cli() -> argparse.Namespace:
         default=1000,
         help="Maximum iterations for solver (default: 1000)",
     )
+    parser.add_argument(
+        "--experiment-name",
+        type=str,
+        default="Default",
+        help="MLflow experiment name (default: Default)",
+    )
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default="xG Model",
+        help="Registered model name in MLflow (default: xG Model)",
+    )
 
     return parser.parse_args()
 
@@ -285,4 +316,6 @@ if __name__ == "__main__":
         random_state=args.random_state,
         max_iter=args.max_iter,
         run_name=args.run_name,
+        experiment_name=args.experiment_name,
+        model_name=args.model_name,
     )

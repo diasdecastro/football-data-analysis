@@ -21,7 +21,13 @@ from src.serve.loaders import (
     set_current_model,
     get_current_model_id,
 )
-from src.serve.schemas import ShotRequest, ShotResponse, HealthResponse
+from src.serve.schemas import (
+    ShotRequest,
+    ShotResponse,
+    HealthResponse,
+    XGModelTrainRequest,
+)
+from src.tasks.xg.train.train_xg import train_xg_model
 
 
 router = APIRouter(prefix="/v1/xg", tags=["xG (Expected Goals)"])
@@ -84,7 +90,7 @@ async def list_models():
 
 @router.post(
     "/models/select",
-    summary="Select active model",
+    summary="Select active model by ID",
     description="Change the currently active model for predictions",
 )
 async def select_model(model_id: str = Query(..., description="Model ID to activate")):
@@ -234,6 +240,24 @@ async def generate_heatmap(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating heatmap: {str(e)}",
         )
+
+
+@router.post(
+    "/train",
+    summary="Train a new xG model",
+    description="Train a new xG model using the latest features dataset",
+)
+async def train_model(requestBody: XGModelTrainRequest):
+    train_xg_model(
+        features_path=requestBody.features_path,
+        output_path=requestBody.output_path,
+        test_size=requestBody.test_size,
+        random_state=requestBody.random_state,
+        max_iter=requestBody.max_iter,
+        run_name=requestBody.run_name,
+        experiment_name=requestBody.experiment_name,
+        model_name=requestBody.model_name,
+    )
 
 
 @router.get(

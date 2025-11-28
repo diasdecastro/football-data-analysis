@@ -282,8 +282,8 @@ The MLflow UI provides:
 **Model Versioning:**
 
 Each training run automatically registers a new model version:
-- **Baseline (v1)**: Distance + Angle only (ROC-AUC: 0.735)
-- **Current (v2)**: Distance + Angle + Body Part (ROC-AUC: 0.784)
+- **Baseline (v1)**: Distance + Angle only
+- **Current (v2)**: Distance + Angle + Body Part
 
 The API automatically discovers all registered model versions and allows switching between them via the `/v1/xg/models` endpoint.
 
