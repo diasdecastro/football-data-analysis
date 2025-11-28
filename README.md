@@ -80,16 +80,6 @@ This is a **working, deployable system** that can be used for Expected Goals (xG
    - Reproducible experiments (random seeds, versioning) (?)
    - Thought about deployment and serving
 
-### Next Evolution: **MLOps Transformation**
-
-The current system is intentionally designed to evolve into a production MLOps platform. MLflow is now integrated for experiment tracking and model registry. The architecture supports adding:
-- ✅ Experiment tracking (MLflow)
-- ✅ Model versioning and registry (MLflow)
-- Automated retraining pipelines
-- Monitoring and drift detection
-- CI/CD automation
-- Cloud deployment
-
 ---
 
 ### What Works Right Now
@@ -364,7 +354,7 @@ The current system provides a solid foundation for evolution into a production-g
 
 - [x] **MLflow**: Experiment tracking and model registry
 - [ ] **DVC**: Data version control
-- [ ] **Model monitoring**: Drift detection and performance tracking (with Evidently)
+- [x] **Model monitoring** (): Drift detection and performance tracking (very basic MVP)
 - [ ] **A/B testing**: Compare model versions in production
 - [ ] **Automated retraining**: Scheduled pipelines with new data
 - [ ] **CI/CD**: Automated testing and deployment
