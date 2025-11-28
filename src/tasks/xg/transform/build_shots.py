@@ -109,7 +109,6 @@ def _iterate_shots_for_match(match_row: Dict) -> Iterator[Shot]:
     match_id = match_row["match_id"]
     events_path = BRONZE_ROOT / "events" / f"{match_id}.json"
     if not events_path.exists():
-        # Some seasons in early years may not have events (rare). Skip safely.
         return
 
     try:
@@ -118,7 +117,6 @@ def _iterate_shots_for_match(match_row: Dict) -> Iterator[Shot]:
         raise RuntimeError(f"Failed to parse {events_path}: {e}") from e
 
     for ev in events:
-        # Only keep Shot events
         if ev.get("type", {}).get("name") != "Shot":
             continue
 
@@ -195,7 +193,6 @@ def build_shots(
     comps_set = set(comps) if comps else None
     seasons_set = set(seasons) if seasons else None
 
-    # 1) Enumerate matches
     matches_rows = list(_iterate_matches_rows(comps=comps_set, seasons=seasons_set))
     if not matches_rows:
         raise RuntimeError(
@@ -204,7 +201,6 @@ def build_shots(
         )
     matches_df = pd.DataFrame(matches_rows)
 
-    # 2) Extract shots per match
     shot_records: List[Shot] = []
     for row in matches_rows:
         shot_records.extend(list(_iterate_shots_for_match(row)))
@@ -212,10 +208,8 @@ def build_shots(
     if not shot_records:
         raise RuntimeError("No shots found in the selected competitions/seasons.")
 
-    # 3) Assemble DataFrame and merge minimal match context
     shots_df = pd.DataFrame([s.__dict__ for s in shot_records])
 
-    # Ensure essential columns exist / types are reasonable
     validation.require_columns(
         shots_df,
         [
@@ -229,15 +223,11 @@ def build_shots(
             "is_goal",
         ],
     )
-    # Basic non-negative check (x,y are in [0,120]x[0,80] in StatsBomb coordinates)
     validation.assert_bounds(shots_df, "x", min_val=0.0)
     validation.assert_bounds(shots_df, "y", min_val=0.0)
-    # Distance to goal should be positive when calculated
     validation.assert_bounds(shots_df, "distance_to_goal", min_val=0.0)
-    # Shot angle should be positive when calculated (radians)
     validation.assert_bounds(shots_df, "shot_angle", min_val=0.0)
 
-    # 4) Write to silver
     target = out_path or io.shots_silver_path()
     io.write_table(shots_df, target, index=False)
 

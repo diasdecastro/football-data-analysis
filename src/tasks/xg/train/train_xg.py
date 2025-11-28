@@ -34,7 +34,14 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
     path = features_path or io.xg_features_gold_path()
     features = io.read_table(path)
 
-    required_cols = ["shot_distance", "shot_angle", "body_part", "is_goal"]
+    required_cols = [
+        "shot_distance",
+        "shot_angle",
+        "body_part",
+        "is_open_play",
+        "one_on_one",
+        "is_goal",
+    ]
     missing_cols = [col for col in required_cols if col not in features.columns]
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
@@ -51,17 +58,24 @@ def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     Prepare features and target for training.
     One-hot encodes body_part into binary features.
     """
-    df_clean = df.dropna(subset=["shot_distance", "shot_angle", "body_part", "is_goal"])
+    df_clean = df.dropna(
+        subset=[
+            "shot_distance",
+            "shot_angle",
+            "body_part",
+            "is_open_play",
+            "one_on_one",
+            "is_goal",
+        ]
+    )
 
     # Numeric features
-    X = df_clean[["shot_distance", "shot_angle"]].copy()
-
-    # Encode body_part (categorical)
+    X = df_clean[["shot_distance", "shot_angle", "is_open_play", "one_on_one"]].copy()
     body_part_dummies = pd.get_dummies(
         df_clean["body_part"], prefix="body_part", drop_first=False
     )
 
-    # Combine numeric and categorical features
+    # Non-numeric features
     X = pd.concat([X, body_part_dummies], axis=1)
 
     y = df_clean["is_goal"].copy()
@@ -178,19 +192,16 @@ def train_xg_model(
     mlflow.set_experiment(experiment_name)
 
     with mlflow.start_run(run_name=run_name):
-        # Log tags for filtering
         mlflow.set_tag("task", "xg")
         mlflow.set_tag("model_type", "logistic_regression")
         mlflow.set_tag("model_family", "linear")
         mlflow.set_tag("framework", "sklearn")
 
-        # Log hyperparameters
         mlflow.log_param("test_size", test_size)
         mlflow.log_param("random_state", random_state)
         mlflow.log_param("max_iter", max_iter)
         mlflow.log_param("solver", "liblinear")
 
-        # Log data source
         if features_path is not None:
             mlflow.log_param("features_path", str(features_path))
         else:
@@ -199,7 +210,6 @@ def train_xg_model(
         df = load_training_data(features_path)
         X, y = prepare_features_target(df)
 
-        # Log feature information
         num_features = X.shape[1]
         feature_names = X.columns.tolist()
         feature_list = ", ".join(feature_names)

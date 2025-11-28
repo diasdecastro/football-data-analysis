@@ -211,7 +211,7 @@ python -m src.tasks.xg.transform.build_shots \
 python -m src.tasks.xg.features.features_xg
 
 # 3. Train model (Gold → Model)
-python -m src.tasks.xg.train.train_xg --run-name "v1" # Optional run name for MLflow
+python -m src.tasks.xg.train.train_xg --run-name "v1" --model-name "xG Bundesliga" # Optional run name for MLflow
 ```
 
 ### Step 2: Serve the API
@@ -346,7 +346,6 @@ The current system provides a solid foundation for evolution into a production-g
 
 - [x] **Docker containerization**
 - [ ] Cloud deployment (AWS/GCP/Azure)
-- [ ] Load balancing and auto-scaling
 
 ### Phase 6: Additional Models
 *Expand analytics capabilities*

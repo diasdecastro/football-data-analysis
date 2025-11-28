@@ -16,6 +16,8 @@ FEATURE_COLS = [
     "shot_distance",
     "shot_angle",
     "body_part",
+    "is_open_play",
+    "one_on_one",
     "is_goal",
 ]
 
@@ -28,10 +30,8 @@ def build_xg_features(
     """
     Build the gold/xg_features.parquet table for training/inference.
     """
-    # 1) Load silver shots
     shots = io.read_table(in_path or io.shots_silver_path())
 
-    # 2) Validate minimal schema
     validation.require_columns(
         shots,
         [
@@ -41,20 +41,29 @@ def build_xg_features(
             "distance_to_goal",
             "shot_angle",
             "body_part",
+            "is_open_play",
+            "one_on_one",
             "is_goal",
         ],
     )
 
-    # 3) Optionally filter penalties (common baseline choice)
     if exclude_penalties and "is_penalty" in shots.columns:
         shots = shots[shots["is_penalty"] == 0].copy()
 
-    # 4) Final feature frame with renamed geometry columns
     features = shots.rename(columns={"distance_to_goal": "shot_distance"})[
-        ["match_id", "team_id", "player_id", "shot_distance", "shot_angle", "body_part", "is_goal"]
+        [
+            "match_id",
+            "team_id",
+            "player_id",
+            "shot_distance",
+            "shot_angle",
+            "body_part",
+            "is_open_play",
+            "one_on_one",
+            "is_goal",
+        ]
     ].reset_index(drop=True)
 
-    # 5) Persist to gold
     target = out_path or io.xg_features_gold_path()
     io.write_table(features, target, index=False)
     return features
