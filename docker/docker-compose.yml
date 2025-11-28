@@ -10,8 +10,8 @@ services:
       - "8000:8000"
     environment:
       - XG_MODEL_NAME=xG Bundesliga
-      - XG_MODEL_STAGE=
       - PYTHONUNBUFFERED=1
+      - MLFLOW_TRACKING_URI=/app/mlruns
     volumes:
       - ../mlruns:/app/mlruns
       - ../models:/app/models
