@@ -252,6 +252,7 @@ docker compose down
 - **API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
 - **MLflow UI**: http://localhost:5001
+- **Drift Report (evidently)**: http://localhost:8000/v1/xg/monitoring/drift
 
 **Persistent Data:**
 
@@ -286,6 +287,33 @@ Each training run automatically registers a new model version:
 - **Current (v2)**: Distance + Angle + Body Part
 
 The API automatically discovers all registered model versions and allows switching between them via the `/v1/xg/models` endpoint.
+
+### Monitoring (Basic MVP)
+
+This project includes a **very minimal monitoring component** to track how the deployed xG model behaves in real usage. Monitoring is still a new concept to me, so this implementation is intentionally simple and mainly for learning.
+
+#### What is monitored?
+
+Each call to `/v1/xg/score` logs:
+
+- `shot_distance`
+- `shot_angle`
+- predicted `xG`
+- model version
+- timestamp
+
+These represent the **core features of the baseline model**, and changes in these distributions can indicate that the live data no longer matches the training data.
+
+#### Drift detection
+
+- **Reference data** → the gold training dataset  
+- **Current data** → recent inference logs  
+- Drift is computed using an Evidently **data drift report**.
+
+You can view the drift dashboard via:
+```bash
+http://localhost:8000/v1/xg/monitoring/drift
+```
 
 ### Test the API
 
@@ -336,7 +364,7 @@ The current system provides a solid foundation for evolution into a production-g
 
 - [x] **MLflow**: Experiment tracking and model registry
 - [ ] **DVC**: Data version control
-- [ ] **Model monitoring**: Drift detection and performance tracking
+- [ ] **Model monitoring**: Drift detection and performance tracking (with Evidently)
 - [ ] **A/B testing**: Compare model versions in production
 - [ ] **Automated retraining**: Scheduled pipelines with new data
 - [ ] **CI/CD**: Automated testing and deployment

@@ -1,6 +1,4 @@
 """
-src/serve/schemas.py
-
 Pydantic schemas for request/response validation.
 """
 

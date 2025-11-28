@@ -1,4 +1,3 @@
-# src/tasks/xg/features/features_xg.py
 from __future__ import annotations
 
 import argparse

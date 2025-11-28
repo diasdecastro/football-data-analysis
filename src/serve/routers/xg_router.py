@@ -1,11 +1,9 @@
 """
-src/serve/routers/xg_router.py
-
 FastAPI router for xG prediction endpoints with multi-model support.
 """
 
 from fastapi import APIRouter, HTTPException, status, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
 import pandas as pd
 import numpy as np
 import math
@@ -28,6 +26,8 @@ from src.serve.schemas import (
     XGModelTrainRequest,
 )
 from src.tasks.xg.train.train_xg import train_xg_model
+from src.monitoring.logger import log_xg_inference
+from src.monitoring.drift import build_drift_report
 
 
 router = APIRouter(prefix="/v1/xg", tags=["xG (Expected Goals)"])
@@ -144,6 +144,15 @@ async def score_xg(
 
         xg_probability = model.predict_proba(features)[0, 1]
 
+        # Monitoring log
+        active_model_id = model_id or get_current_model_id() or "unknown"
+        log_xg_inference(
+            shot_distance=shot_distance,
+            shot_angle=shot_angle_rad,
+            xg=float(xg_probability),
+            model_id=active_model_id,
+        )
+
         response = ShotResponse(
             xG=round(float(xg_probability), 4),
             shot_distance=round(float(shot_distance), 2),
@@ -258,6 +267,24 @@ async def train_model(requestBody: XGModelTrainRequest):
         experiment_name=requestBody.experiment_name,
         model_name=requestBody.model_name,
     )
+
+
+@router.get(
+    "/monitoring/drift",
+    summary="View data drift report",
+    description="Generate and return an HTML data drift report comparing training data to recent inferences.",
+    response_class=HTMLResponse,
+)
+async def xg_drift_report():
+    report_path = build_drift_report()
+    if report_path is None:
+        return HTMLResponse(
+            "<h3>No monitoring data yet</h3><p>Make some /v1/xg/score calls first.</p>",
+            status_code=200,
+        )
+    with open(report_path, "r", encoding="utf-8") as f:
+        html = f.read()
+    return HTMLResponse(content=html, status_code=200)
 
 
 @router.get(

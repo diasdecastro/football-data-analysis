@@ -1,4 +1,4 @@
-# Expected Goals (xG) Analysis
+# Expected Goals (xG) Analysis (Outdated document)
 
 ## Overview
 
