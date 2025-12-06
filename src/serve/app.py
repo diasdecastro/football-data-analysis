@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
-from src.serve.routers import xg_router
+from src.serve.routers import xg
 from src.serve.loaders import get_xg_model
 
 
@@ -25,7 +25,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(xg_router.router)
+app.include_router(xg.router)
 
 
 @app.get("/", include_in_schema=False)
@@ -85,7 +85,7 @@ async def startup_event():
     print("=" * 60)
     print("📖 API Documentation: http://localhost:8000/docs")
     print("🏥 Health Check: http://localhost:8000/health")
-    print("⚽ xG Endpoint: POST http://localhost:8000/v1/xg/score")
+    print("⚽ xG Endpoint: POST http://localhost:8000/xg/score")
     print("=" * 60 + "\n")
 
 
