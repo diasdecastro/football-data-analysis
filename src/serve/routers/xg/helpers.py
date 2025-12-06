@@ -23,7 +23,6 @@ def build_features_for_model(
     """
     feature_names = getattr(model, "feature_names_in_", None)
 
-    # Fallback for very simple models
     if feature_names is None:
         return pd.DataFrame(
             {
@@ -43,23 +42,20 @@ def build_features_for_model(
 
     # All other features: take from raw_features or fallback to default
     for feat in feature_names:
-        if feat in features_dict:  # already filled (body_part_)
+        if feat in features_dict:
             continue
 
         if feat in raw_features:
             features_dict[feat] = [raw_features[feat]]
         else:
-            # Unknown / missing feature: neutral default
             features_dict[feat] = [0]
 
-    # Ensure column order matches model expectation exactly
     return pd.DataFrame(features_dict)[list(feature_names)]
 
 
 def build_features_from_request(model, shot: ShotRequest):
     """
-    High-level helper: take a ShotRequest and build the exact feature
-    DataFrame the model expects, plus derived shot geometry for logging/response.
+    Build feature DataFrame from ShotRequest for the given model.
     """
     shot_distance, shot_angle_rad, shot_angle_deg = calculate_shot_features(
         shot.x, shot.y
@@ -150,13 +146,12 @@ def generate_xg_heatmap(
 
             xg_grid[i, j] = model.predict_proba(features)[0, 1]
 
-    # Create the plot with exact canvas dimensions (700x467 pixels)
+    # Create the plot with exact canvas dimensions (700x467 pixels) (Pitch is not exact)
     fig_width = 7.0  # 700px / 100 DPI
     fig_height = 4.67  # 467px / 100 DPI
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=100)
 
-    # Color gradient: Poor shot to Excellent shot (red -> yellow -> green)
     colors = ["#d32f2f", "#f57c00", "#fbc02d", "#689f38", "#388e3c"]
     cmap = LinearSegmentedColormap.from_list("xg", colors, N=100)
 
@@ -184,7 +179,6 @@ def generate_xg_heatmap(
 def get_model_feature_names(model) -> list[str]:
     """
     Return the ordered list of raw feature names the model expects.
-    Falls back to the default geometry features for simple models.
     """
     feature_names = getattr(model, "feature_names_in_", None)
     if feature_names is None:
