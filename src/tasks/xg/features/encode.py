@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from src.common.geometry import distance_to_goal, shot_angle
 from src.tasks.xg.transform.build_shots import Shot
@@ -30,27 +30,26 @@ def _normalize_body_part(body_part: Optional[str]) -> str:
     return "Other"
 
 
-def encode_shot_for_xg(shot: Shot) -> Dict[str, float]:
+# TODO: create a Shot-Like type
+def encode_shot_for_xg(shot: Any) -> Dict[str, float]:
     """
-    Turn a domain Shot object into a flat dict of model-ready features
+    Turn a Shot-Like object into a flat dict of model-ready features
     for xG modelling.
     """
     # Compute distance and angle if not provided
-    if shot.distance_to_goal is not None:
+    if getattr(shot, "distance_to_goal", None) is not None:
         distance = float(shot.distance_to_goal)
     else:
-        if shot.x is None or shot.y is None:
-            raise ValueError(
-                "Shot has no distance_to_goal and missing x/y coordinates; "
-            )
+        if getattr(shot, "x", None) is None or getattr(shot, "y", None) is None:
+            raise ValueError("Shot has no distance_to_goal and missing x/y coordinates")
         distance = float(distance_to_goal(shot.x, shot.y))
 
     # Compute angle if not provided
-    if shot.shot_angle is not None:
+    if getattr(shot, "shot_angle", None) is not None:
         angle = float(shot.shot_angle)
     else:
-        if shot.x is None or shot.y is None:
-            raise ValueError("Shot has no shot_angle and missing x/y coordinates; ")
+        if getattr(shot, "x", None) is None or getattr(shot, "y", None) is None:
+            raise ValueError("Shot has no shot_angle and missing x/y coordinates")
         angle = float(shot_angle(shot.x, shot.y))
 
     features: Dict[str, float] = {
@@ -58,23 +57,32 @@ def encode_shot_for_xg(shot: Shot) -> Dict[str, float]:
         "shot_angle": angle,
     }
 
-    # Numerical / boolean features
-    features.update(
-        {
-            "is_open_play": float(shot.is_open_play),
-            "one_on_one": float(shot.one_on_one),
-            "is_penalty": float(shot.is_penalty),
-            "is_freekick": float(shot.is_freekick),
-            "first_time": float(shot.first_time),
-            "period": float(shot.period),
-            "minute": float(shot.minute),
-            "second": float(shot.second),
-        }
-    )
+    # Numerical / boolean feature
+    for key in [
+        "is_open_play",
+        "one_on_one",
+        "is_penalty",
+        "is_freekick",
+        "first_time",
+        "period",
+        "minute",
+        "second",
+    ]:
+        if hasattr(shot, key):
+            value = getattr(shot, key)
+            if isinstance(value, bool):
+                features[key] = float(value)
+            elif isinstance(value, (int, float)):
+                features[key] = float(value)
+            else:
+                continue
+        else:
+            continue
 
     # Body part one-hot encoding
-    normalized_body_part = _normalize_body_part(shot.body_part)
-    for part in BODY_PART_CATEGORIES:
-        features[f"body_part_{part}"] = 1.0 if normalized_body_part == part else 0.0
+    if hasattr(shot, "body_part"):
+        normalized_body_part = _normalize_body_part(shot.body_part)
+        for part in BODY_PART_CATEGORIES:
+            features[f"body_part_{part}"] = 1.0 if normalized_body_part == part else 0.0
 
     return features

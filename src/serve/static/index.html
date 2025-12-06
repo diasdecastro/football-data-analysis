@@ -551,7 +551,7 @@
         // Load available models
         async function loadModels() {
             try {
-                const response = await fetch(`${API_BASE_URL}/v1/xg/models`);
+                const response = await fetch(`${API_BASE_URL}/xg/models`);
                 const data = await response.json();
                 
                 modelSelect.innerHTML = '';
@@ -587,7 +587,7 @@
             const modelId = e.target.value;
             try {
                 const response = await fetch(
-                    `${API_BASE_URL}/v1/xg/models/select?model_id=${modelId}`,
+                    `${API_BASE_URL}/xg/models/select?model_id=${modelId}`,
                     { method: 'POST' }
                 );
                 const data = await response.json();
@@ -613,7 +613,7 @@
             
             try {
                 const modelParam = currentModel ? `?model_id=${currentModel}&resolution=60` : '?resolution=60';
-                const response = await fetch(`${API_BASE_URL}/v1/xg/heatmap${modelParam}`);
+                const response = await fetch(`${API_BASE_URL}/xg/heatmap${modelParam}`);
                 
                 if (!response.ok) throw new Error('Failed to generate heatmap');
                 
@@ -695,7 +695,7 @@
         async function calculateXG(pitchX, pitchY) {
             try {
                 const modelParam = currentModel ? `?model_id=${currentModel}` : '';
-                const response = await fetch(`${API_BASE_URL}/v1/xg/score${modelParam}`, {
+                const response = await fetch(`${API_BASE_URL}/xg/score${modelParam}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ x: pitchX, y: pitchY })

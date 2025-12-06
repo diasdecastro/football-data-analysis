@@ -12,6 +12,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from src.common.geometry import distance_to_goal, shot_angle
 from src.serve.schemas import ShotRequest
+import src.tasks.xg.features.encode as xg_encode
 
 
 def build_features_for_model(
@@ -53,43 +54,15 @@ def build_features_for_model(
     return pd.DataFrame(features_dict)[list(feature_names)]
 
 
-def build_features_from_request(model, shot: ShotRequest):
+def build_features_from_request(model, shot_req: ShotRequest):
     """
     Build feature DataFrame from ShotRequest for the given model.
     """
-    shot_distance, shot_angle_rad, shot_angle_deg = calculate_shot_features(
-        shot.x, shot.y
-    )
 
-    features = {
-        "shot_distance": float(shot_distance),
-        "shot_angle": float(shot_angle_rad),
-        "body_part": shot.body_part,
-    }
-
-    feature_names = getattr(model, "feature_names_in_", None)
-    if feature_names is None:
-        feature_names = []
-
-    for name in feature_names:
-        if name in features or name.startswith("body_part_"):
-            continue
-
-        if hasattr(shot, name):
-            value = getattr(shot, name)
-            if isinstance(value, bool):
-                features[name] = int(value)
-            elif isinstance(value, (int, float, str)):
-                features[name] = value
-            else:
-                # Convert numpy arrays or other types to scalar
-                try:
-                    features[name] = float(value)
-                except (TypeError, ValueError):
-                    features[name] = value
+    features = xg_encode.encode_shot_for_xg(shot_req)
 
     features_df = build_features_for_model(model, **features)
-    return features_df, shot_distance, shot_angle_rad, shot_angle_deg
+    return features_df
 
 
 def interpret_xg(xg_value: float) -> str:
@@ -140,7 +113,7 @@ def generate_xg_heatmap(
             shot_angle_rad = shot_angle(x, y)
 
             # Use Right Foot as default for heatmap
-            features, _, _, _ = build_features_from_request(
+            features = build_features_from_request(
                 model, ShotRequest(x=x, y=y, body_part="Right Foot")
             )
 
