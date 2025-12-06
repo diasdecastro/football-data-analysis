@@ -64,7 +64,7 @@ async def startup_event():
     not on every request.
     """
     print("\n" + "=" * 60)
-    print("🚀 Starting Football Analytics API")
+    print("Starting Football Analytics API")
     print("=" * 60)
 
     try:
@@ -83,13 +83,13 @@ async def startup_event():
         print(f"❌ Error loading models: {e}")
 
     print("=" * 60)
-    print("📖 API Documentation: http://localhost:8000/docs")
-    print("🏥 Health Check: http://localhost:8000/health")
-    print("⚽ xG Endpoint: POST http://localhost:8000/xg/score")
+    print("API Documentation: http://localhost:8000/docs")
+    print("Health Check: http://localhost:8000/health")
+    print("xG Endpoint: POST http://localhost:8000/xg/score")
     print("=" * 60 + "\n")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown."""
-    print("\n👋 Shutting down Football Analytics API")
+    print("\nShutting down Football Analytics API")
