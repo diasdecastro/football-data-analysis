@@ -19,6 +19,7 @@ from src.serve.schemas import (
 )
 from src.serve.routers.xg.helpers import (
     build_features_for_model,
+    build_features_from_request,
     interpret_xg,
     calculate_shot_features,
     generate_xg_heatmap,
@@ -82,12 +83,8 @@ async def score_xg(
     try:
         model = get_xg_model(model_id)
 
-        shot_distance, shot_angle_rad, shot_angle_deg = calculate_shot_features(
-            shot.x, shot.y
-        )
-
-        features = build_features_for_model(
-            model, shot_distance, shot_angle_rad, shot.body_part
+        features, shot_distance, shot_angle_rad, shot_angle_deg = (
+            build_features_from_request(model, shot)
         )
 
         if model is None or getattr(model, "predict_proba", None) is None:
@@ -96,7 +93,7 @@ async def score_xg(
                 detail="Model does not support probability predictions",
             )
 
-        xg_probability = model.predict_proba(features)[0, 1]
+        xg_probability = float(model.predict_proba(features)[0, 1])
 
         # Monitoring log
         active_model_id = model_id or get_current_model_id() or "unknown"
@@ -117,6 +114,9 @@ async def score_xg(
         return response
 
     except Exception as e:
+        import traceback
+
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error calculating xG: {str(e)}",
