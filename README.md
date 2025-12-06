@@ -276,7 +276,22 @@ Each training run automatically registers a new model version:
 - **Baseline (v1)**: Distance + Angle only
 - **Current (v2)**: Distance + Angle + Body Part
 
-The API automatically discovers all registered model versions and allows switching between them via the `/v1/xg/models` endpoint.
+The API automatically discovers all registered model versions and allows switching between them via the `/xg/models` endpoint.
+
+---
+
+## API Usage
+
+The FastAPI service exposes all Expected Goals functionality under `http://localhost:8000/xg`. Common calls:
+
+- `POST /xg/score` &mdash; predict the xG value for a single shot (optionally specify `model_id`).
+- `GET /xg/models` &mdash; inspect registered MLflow versions and switch between them.
+- `GET /xg/models/features` &mdash; discover the ordered feature vectors each model expects.
+- `GET /xg/monitoring/drift` &mdash; open the Evidently dashboard comparing training vs inference data.
+
+Swagger UI is available at **http://localhost:8000/docs** for quick experiments.
+
+For the complete API reference (request/response tables, examples, and additional endpoints) see [src/serve/routers/xg/README.md](src/serve/routers/xg/README.md).
 
 ### Monitoring (Basic MVP)
 
