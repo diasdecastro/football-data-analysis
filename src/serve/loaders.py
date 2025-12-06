@@ -110,6 +110,13 @@ def get_xg_model(model_id: Optional[str] = None):
     return _load_model_from_registry(default_id)
 
 
+def load_model_artifact(model_id: str):
+    """
+    Load a specific model from MLflow without changing the active selection.
+    """
+    return _load_model_from_registry(model_id)
+
+
 def set_current_model(model_id: str):
     global _CURRENT_MODEL_ID
 

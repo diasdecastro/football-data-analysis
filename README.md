@@ -14,6 +14,7 @@
 - [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [API Usage](#api-usage)
 - [Future Roadmap](#future-roadmap)
 
 ---
@@ -242,7 +243,7 @@ docker compose down
 - **API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
 - **MLflow UI**: http://localhost:5001
-- **Drift Report (evidently)**: http://localhost:8000/v1/xg/monitoring/drift
+- **Drift Report (evidently)**: http://localhost:8000/xg/monitoring/drift
 
 **Persistent Data:**
 
@@ -299,7 +300,7 @@ This project includes a **very minimal monitoring component** to track how the d
 
 #### What is monitored?
 
-Each call to `/v1/xg/score` logs:
+Each call to `/xg/score` logs:
 
 - `shot_distance`
 - `shot_angle`
@@ -317,42 +318,8 @@ These represent the **core features of the baseline model**, and changes in thes
 
 You can view the drift dashboard via:
 ```bash
-http://localhost:8000/v1/xg/monitoring/drift
+http://localhost:8000/xg/monitoring/drift
 ```
-
-### Test the API
-
-```bash
-# Health check
-curl http://localhost:8000/v1/xg/health
-
-# Predict xG for a shot
-curl -X POST http://localhost:8000/v1/xg/score \
-  -H "Content-Type: application/json" \
-  -d '{"x": 108.0, "y": 40.0}'
-```
-
-**Expected Response:**
-```json
-{
-  "xG": 0.2456,
-  "shot_distance": 12.0,
-  "shot_angle": 18.43,
-  "quality": "Good"
-}
-```
-
-### Interactive API Documentation
-
-Open your browser to: **http://localhost:8000/docs**
-
-FastAPI automatically generates interactive Swagger UI documentation where you can:
-- Explore all endpoints
-- Test API calls directly from the browser
-- View request/response schemas
-- See example payloads
-
----
 
 ## Future Roadmap
 

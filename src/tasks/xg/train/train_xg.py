@@ -25,6 +25,8 @@ from src.common.mlflow_utils import (
 
 import mlflow
 from mlflow import sklearn as mlflow_sklearn
+from src.tasks.xg.transform.build_shots import Shot
+from src.tasks.xg.features.encode import encode_shot_for_xg
 
 
 def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
@@ -56,12 +58,12 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
 def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Prepare features and target for training.
-    One-hot encodes body_part into binary features.
     """
+
     df_clean = df.dropna(
         subset=[
-            "shot_distance",
-            "shot_angle",
+            "x",
+            "y",
             "body_part",
             "is_open_play",
             "one_on_one",
@@ -69,18 +71,43 @@ def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         ]
     )
 
-    # Numeric features
-    X = df_clean[["shot_distance", "shot_angle", "is_open_play", "one_on_one"]].copy()
-    body_part_dummies = pd.get_dummies(
-        df_clean["body_part"], prefix="body_part", drop_first=False
-    )
+    encoded_rows: list[dict] = []
 
-    # Non-numeric features
-    X = pd.concat([X, body_part_dummies], axis=1)
+    # Iterate over rows and encode via the domain Shot object
+    for row in df_clean.itertuples(index=False):
+        shot = Shot(
+            event_id=getattr(row, "event_id", "train"),
+            match_id=getattr(row, "match_id", 0),
+            competition_id=getattr(row, "competition_id", 0),
+            season_id=getattr(row, "season_id", 0),
+            home_team_id=getattr(row, "home_team_id", 0),
+            away_team_id=getattr(row, "away_team_id", 0),
+            team_id=getattr(row, "team_id", 0),
+            opponent_team_id=getattr(row, "opponent_team_id", 0),
+            player_id=getattr(row, "player_id", None),
+            period=int(getattr(row, "period", 1)),
+            minute=int(getattr(row, "minute", 0)),
+            second=int(getattr(row, "second", 0)),
+            x=float(getattr(row, "x")),
+            y=float(getattr(row, "y")),
+            end_x=getattr(row, "end_x", None),
+            end_y=getattr(row, "end_y", None),
+            distance_to_goal=getattr(row, "distance_to_goal", None),
+            shot_angle=getattr(row, "shot_angle", None),
+            is_goal=int(getattr(row, "is_goal", 0)),
+            is_penalty=int(getattr(row, "is_penalty", 0)),
+            is_freekick=int(getattr(row, "is_freekick", 0)),
+            is_open_play=int(getattr(row, "is_open_play", 1)),
+            body_part=getattr(row, "body_part", "Right Foot"),
+            technique=getattr(row, "technique", None),
+            first_time=int(getattr(row, "first_time", 0)),
+            one_on_one=int(getattr(row, "one_on_one", 0)),
+        )
 
-    y = df_clean["is_goal"].copy()
+        encoded_rows.append(encode_shot_for_xg(shot))
 
-    print(f"📈 Prepared {X.shape[0]:,} samples with {X.shape[1]} features")
+    X = pd.DataFrame(encoded_rows)
+    y = df_clean["is_goal"].astype(int).reset_index(drop=True)
 
     return X, y
 

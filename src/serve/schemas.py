@@ -4,16 +4,12 @@ Pydantic schemas for request/response validation.
 
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, List
 
 
 class ShotRequest(BaseModel):
     """
     Request schema for xG prediction.
-
-    Coordinates use StatsBomb's system:
-    - X: 0-120 (goal at x=120)
-    - Y: 0-80 (center at y=40)
     """
 
     x: float = Field(
@@ -26,6 +22,12 @@ class ShotRequest(BaseModel):
         default="Right Foot",
         description="Body part used for the shot",
         pattern="^(Right Foot|Left Foot|Head|Other)$",
+    )
+    is_open_play: bool = Field(
+        default=True, description="Whether the shot was from open play"
+    )
+    one_on_one: bool = Field(
+        default=False, description="Whether the shot was a one-on-one situation"
     )
 
     model_config = {
@@ -43,6 +45,7 @@ class ShotRequest(BaseModel):
     }
 
 
+# TODO Expanded response with shot details
 class ShotResponse(BaseModel):
     """
     Response schema for xG prediction.
@@ -118,3 +121,76 @@ class ErrorResponse(BaseModel):
 
     error: str = Field(..., description="Error message")
     detail: Optional[str] = Field(None, description="Detailed error information")
+
+
+class XGModelMetadata(BaseModel):
+    """Metadata about a single xG model version."""
+
+    model_id: str = Field(..., description="Convenient identifier (name@version)")
+    model_key: str = Field(..., description="Alias key (matches model_id)")
+    name: str = Field(..., description="Registered model name")
+    display_name: str = Field(..., description="Human-friendly name with version")
+    version: int = Field(..., description="MLflow model version number", ge=1)
+    stage: Optional[str] = Field(None, description="MLflow stage (e.g. Production)")
+    run_id: str = Field(..., description="MLflow run ID")
+    created_at: int = Field(..., description="Creation timestamp (ms since epoch)")
+    metrics: Dict[str, float] = Field(
+        default_factory=dict, description="Evaluation metrics logged during training"
+    )
+    tags: Dict[str, str] = Field(
+        default_factory=dict, description="MLflow tags associated with the run"
+    )
+
+
+class XGModelListResponse(BaseModel):
+    """Response for GET /models."""
+
+    models: List[XGModelMetadata] = Field(..., description="Discovered model versions")
+    current_model: Optional[str] = Field(
+        None, description="Currently selected model identifier"
+    )
+    count: int = Field(..., description="Number of models returned", ge=0)
+
+
+class SelectModelResponse(BaseModel):
+    """Response for POST /models/select."""
+
+    status: str = Field(..., description="Operation status")
+    selected_model: Optional[XGModelMetadata] = Field(
+        None, description="Metadata for the activated model"
+    )
+    message: str = Field(..., description="Human-readable status message")
+
+
+class ModelFeatureSet(BaseModel):
+    """Represents the ordered feature vector for a specific model."""
+
+    model_id: str = Field(..., description="Model identifier (name@version)")
+    display_name: Optional[str] = Field(
+        None, description="Human-readable name for the model"
+    )
+    stage: Optional[str] = Field(None, description="MLflow stage")
+    run_id: Optional[str] = Field(None, description="MLflow run identifier")
+    feature_count: int = Field(..., description="Length of the feature vector", ge=0)
+    features: List[str] = Field(..., description="Ordered feature names")
+    body_part_options: List[str] = Field(
+        default_factory=list,
+        description="Body part categories inferred from one-hot columns",
+    )
+
+
+class ModelFeatureError(BaseModel):
+    """Represents a model that failed to load when building feature metadata."""
+
+    model_id: str = Field(..., description="Model identifier that failed to load")
+    error: str = Field(..., description="Error message")
+
+
+class ModelFeatureListResponse(BaseModel):
+    """Response for GET /models/features."""
+
+    models: List[ModelFeatureSet] = Field(..., description="Feature metadata per model")
+    count: int = Field(..., description="Number of models with feature metadata", ge=0)
+    errors: Optional[List[ModelFeatureError]] = Field(
+        None, description="Optional list of registry entries that failed to load"
+    )
