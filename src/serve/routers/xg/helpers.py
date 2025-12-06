@@ -11,84 +11,90 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
 from src.common.geometry import distance_to_goal, shot_angle
+from src.serve.schemas import ShotRequest
 
 
 def build_features_for_model(
     model,
-    shot_distance: float,
-    shot_angle: float,
-    body_part: str = "Right Foot",
-    is_open_play: bool = True,
-    one_on_one: bool = False,
-    **extra_features,
+    **raw_features,
 ) -> pd.DataFrame:
     """
-    Dynamically build feature DataFrame based on model's expected features.
-    
-    Args:
-        model: Trained model with feature_names_in_ attribute
-        shot_distance: Distance to goal in meters
-        shot_angle: Angle to goal in radians
-        body_part: Body part used for shot
-        is_open_play: Whether shot was from open play
-        one_on_one: Whether shot was one-on-one with goalkeeper
-        **extra_features: Additional features for future model versions
-    
-    Returns:
-        DataFrame with features in the exact order the model expects
+    Build feature DataFrame based on model's expected features.
     """
     feature_names = getattr(model, "feature_names_in_", None)
 
     if feature_names is None:
-        # Fallback for models without feature_names_in_
         return pd.DataFrame(
             {
-                "shot_distance": [shot_distance],
-                "shot_angle": [shot_angle],
+                "shot_distance": [raw_features["shot_distance"]],
+                "shot_angle": [raw_features["shot_angle"]],
             }
         )
 
-    features_dict = {}
-
-    # Known features
-    if "shot_distance" in feature_names:
-        features_dict["shot_distance"] = [shot_distance]
-    if "shot_angle" in feature_names:
-        features_dict["shot_angle"] = [shot_angle]
-    if "is_open_play" in feature_names:
-        features_dict["is_open_play"] = [1 if is_open_play else 0]
-    if "one_on_one" in feature_names:
-        features_dict["one_on_one"] = [1 if one_on_one else 0]
+    features_dict: dict[str, list] = {}
 
     # Handle body_part one-hot encoding
+    body_part_value = raw_features.get("body_part", "Right Foot")
     body_part_features = [f for f in feature_names if f.startswith("body_part_")]
     for feat in body_part_features:
         part_name = feat.replace("body_part_", "")
-        features_dict[feat] = [1 if body_part == part_name else 0]
+        features_dict[feat] = [1 if body_part_value == part_name else 0]
 
-    # Handle unknown features with defaults
+    # All other features: take from raw_features or fallback to default
     for feat in feature_names:
-        if feat not in features_dict:
-            # Check if provided in extra_features
-            if feat in extra_features:
-                features_dict[feat] = [extra_features[feat]]
-            else:
-                # Default to 0 for unknown features
-                features_dict[feat] = [0]
+        if feat in features_dict:
+            continue
 
-    # Return DataFrame with columns in the EXACT order model expects
+        if feat in raw_features:
+            features_dict[feat] = [raw_features[feat]]
+        else:
+            features_dict[feat] = [0]
+
     return pd.DataFrame(features_dict)[list(feature_names)]
+
+
+def build_features_from_request(model, shot: ShotRequest):
+    """
+    Build feature DataFrame from ShotRequest for the given model.
+    """
+    shot_distance, shot_angle_rad, shot_angle_deg = calculate_shot_features(
+        shot.x, shot.y
+    )
+
+    features = {
+        "shot_distance": float(shot_distance),
+        "shot_angle": float(shot_angle_rad),
+        "body_part": shot.body_part,
+    }
+
+    feature_names = getattr(model, "feature_names_in_", None)
+    if feature_names is None:
+        feature_names = []
+
+    for name in feature_names:
+        if name in features or name.startswith("body_part_"):
+            continue
+
+        if hasattr(shot, name):
+            value = getattr(shot, name)
+            if isinstance(value, bool):
+                features[name] = int(value)
+            elif isinstance(value, (int, float, str)):
+                features[name] = value
+            else:
+                # Convert numpy arrays or other types to scalar
+                try:
+                    features[name] = float(value)
+                except (TypeError, ValueError):
+                    features[name] = value
+
+    features_df = build_features_for_model(model, **features)
+    return features_df, shot_distance, shot_angle_rad, shot_angle_deg
 
 
 def interpret_xg(xg_value: float) -> str:
     """
     Convert xG probability to human-readable quality rating.
-    
-    Args:
-        xg_value: xG probability between 0 and 1
-    
-    Returns:
-        Quality rating string
     """
     if xg_value > 0.3:
         return "Excellent"
@@ -103,19 +109,12 @@ def interpret_xg(xg_value: float) -> str:
 def calculate_shot_features(x: float, y: float) -> tuple[float, float, float]:
     """
     Calculate shot distance and angle from coordinates.
-    
-    Args:
-        x: X coordinate (meters from left touchline)
-        y: Y coordinate (meters from bottom touchline)
-    
-    Returns:
-        Tuple of (distance, angle_radians, angle_degrees)
     """
     shot_distance = distance_to_goal(x, y)
     shot_angle_rad = shot_angle(x, y)
     shot_angle_deg = math.degrees(shot_angle_rad)
-    
-    return shot_distance, shot_angle_rad, shot_angle_deg
+
+    return float(shot_distance), float(shot_angle_rad), float(shot_angle_deg)
 
 
 def generate_xg_heatmap(
@@ -124,13 +123,6 @@ def generate_xg_heatmap(
 ) -> io.BytesIO:
     """
     Generate an xG heatmap overlay for the pitch canvas.
-    
-    Args:
-        model: Trained xG model
-        resolution: Grid resolution (higher = more detailed)
-    
-    Returns:
-        BytesIO buffer containing PNG image
     """
     # Define pitch area for xG heatmap (attacking half)
     x_range = np.linspace(60, 120, resolution)
@@ -148,19 +140,18 @@ def generate_xg_heatmap(
             shot_angle_rad = shot_angle(x, y)
 
             # Use Right Foot as default for heatmap
-            features = build_features_for_model(
-                model, shot_distance, shot_angle_rad, "Right Foot"
+            features, _, _, _ = build_features_from_request(
+                model, ShotRequest(x=x, y=y, body_part="Right Foot")
             )
 
             xg_grid[i, j] = model.predict_proba(features)[0, 1]
 
-    # Create the plot with exact canvas dimensions (700x467 pixels)
+    # Create the plot with exact canvas dimensions (700x467 pixels) (Pitch is not exact)
     fig_width = 7.0  # 700px / 100 DPI
     fig_height = 4.67  # 467px / 100 DPI
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=100)
 
-    # Color gradient: Poor shot to Excellent shot (red -> yellow -> green)
     colors = ["#d32f2f", "#f57c00", "#fbc02d", "#689f38", "#388e3c"]
     cmap = LinearSegmentedColormap.from_list("xg", colors, N=100)
 
@@ -183,3 +174,14 @@ def generate_xg_heatmap(
     plt.close(fig)
 
     return buf
+
+
+def get_model_feature_names(model) -> list[str]:
+    """
+    Return the ordered list of raw feature names the model expects.
+    """
+    feature_names = getattr(model, "feature_names_in_", None)
+    if feature_names is None:
+        return ["shot_distance", "shot_angle"]
+
+    return [str(name) for name in feature_names]
