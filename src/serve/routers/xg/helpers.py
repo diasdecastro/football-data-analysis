@@ -47,14 +47,7 @@ def build_features_for_model(
             continue
 
         if feat in raw_features:
-            val = raw_features[feat]
-            # Ensure scalar value, not array
-            if hasattr(val, '__iter__') and not isinstance(val, (str, bytes)):
-                try:
-                    val = float(val[0]) if len(val) == 1 else float(val)
-                except (TypeError, IndexError):
-                    pass
-            features_dict[feat] = [val]
+            features_dict[feat] = [raw_features[feat]]
         else:
             # Unknown / missing feature: neutral default
             features_dict[feat] = [0]
@@ -186,3 +179,15 @@ def generate_xg_heatmap(
     plt.close(fig)
 
     return buf
+
+
+def get_model_feature_names(model) -> list[str]:
+    """
+    Return the ordered list of raw feature names the model expects.
+    Falls back to the default geometry features for simple models.
+    """
+    feature_names = getattr(model, "feature_names_in_", None)
+    if feature_names is None:
+        return ["shot_distance", "shot_angle"]
+
+    return [str(name) for name in feature_names]
