@@ -170,7 +170,9 @@ async def score_xg(
     try:
         model = get_xg_model(model_id)
 
-        features = build_features_from_request(model, shot)
+        features, shot_distance, shot_angle_rad, shot_angle_deg = (
+            build_features_from_request(model, shot)
+        )
 
         if model is None or getattr(model, "predict_proba", None) is None:
             raise HTTPException(
@@ -183,16 +185,16 @@ async def score_xg(
         # Monitoring log
         active_model_id = model_id or get_current_model_id() or "unknown"
         log_xg_inference(
-            shot_distance=features["shot_distance"].iloc[0],
-            shot_angle=features["shot_angle"].iloc[0],
+            shot_distance=shot_distance,
+            shot_angle=shot_angle_rad,
             xg=float(xg_probability),
             model_id=active_model_id,
         )
 
         response = ShotResponse(
             xG=round(float(xg_probability), 4),
-            shot_distance=round(features["shot_distance"].iloc[0], 2),
-            shot_angle=round(features["shot_angle"].iloc[0], 2),
+            shot_distance=round(float(shot_distance), 2),
+            shot_angle=round(float(shot_angle_deg), 2),
             quality=interpret_xg(xg_probability),
         )
 

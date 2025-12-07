@@ -14,8 +14,10 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_auc_score,
-    confusion_matrix,
+    log_loss,
+    brier_score_loss,
 )
+from sklearn.calibration import calibration_curve
 
 from src.common import io
 from src.common.mlflow_utils import (
@@ -25,8 +27,7 @@ from src.common.mlflow_utils import (
 
 import mlflow
 from mlflow import sklearn as mlflow_sklearn
-from src.tasks.xg.transform.build_shots import Shot
-from src.tasks.xg.features.encode import encode_shot_for_xg
+from src.tasks.xg.features.pipeline import build_feature_pipeline
 
 
 def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
@@ -49,7 +50,7 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
         raise ValueError(f"Missing required columns: {missing_cols}")
 
     print(
-        f"📊 Loaded {len(features):,} shots (goal rate: {features['is_goal'].mean():.1%})"
+        f"Loaded {len(features):,} shots (goal rate: {features['is_goal'].mean():.1%})"
     )
 
     return features
@@ -57,7 +58,7 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
 
 def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
-    Prepare features and target for training.
+    Prepare features and target for training using the shared feature pipeline.
     """
 
     df_clean = df.dropna(
@@ -69,44 +70,17 @@ def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
             "one_on_one",
             "is_goal",
         ]
-    )
+    ).reset_index(drop=True)
 
-    encoded_rows: list[dict] = []
+    working_df = df_clean.copy()
+    if (
+        "shot_distance" not in working_df.columns
+        and "distance_to_goal" in working_df.columns
+    ):
+        working_df["shot_distance"] = working_df["distance_to_goal"]
 
-    # Iterate over rows and encode via the domain Shot object
-    for row in df_clean.itertuples(index=False):
-        shot = Shot(
-            event_id=getattr(row, "event_id", "train"),
-            match_id=getattr(row, "match_id", 0),
-            competition_id=getattr(row, "competition_id", 0),
-            season_id=getattr(row, "season_id", 0),
-            home_team_id=getattr(row, "home_team_id", 0),
-            away_team_id=getattr(row, "away_team_id", 0),
-            team_id=getattr(row, "team_id", 0),
-            opponent_team_id=getattr(row, "opponent_team_id", 0),
-            player_id=getattr(row, "player_id", None),
-            period=int(getattr(row, "period", 1)),
-            minute=int(getattr(row, "minute", 0)),
-            second=int(getattr(row, "second", 0)),
-            x=float(getattr(row, "x")),
-            y=float(getattr(row, "y")),
-            end_x=getattr(row, "end_x", None),
-            end_y=getattr(row, "end_y", None),
-            distance_to_goal=getattr(row, "distance_to_goal", None),
-            shot_angle=getattr(row, "shot_angle", None),
-            is_goal=int(getattr(row, "is_goal", 0)),
-            is_penalty=int(getattr(row, "is_penalty", 0)),
-            is_freekick=int(getattr(row, "is_freekick", 0)),
-            is_open_play=int(getattr(row, "is_open_play", 1)),
-            body_part=getattr(row, "body_part", "Right Foot"),
-            technique=getattr(row, "technique", None),
-            first_time=int(getattr(row, "first_time", 0)),
-            one_on_one=int(getattr(row, "one_on_one", 0)),
-        )
-
-        encoded_rows.append(encode_shot_for_xg(shot))
-
-    X = pd.DataFrame(encoded_rows)
+    pipeline = build_feature_pipeline()
+    X = pipeline.transform(working_df).reset_index(drop=True)
     y = df_clean["is_goal"].astype(int).reset_index(drop=True)
 
     return X, y
@@ -157,30 +131,38 @@ def evaluate_model(
     y_train_proba = model.predict_proba(X_train)[:, 1]
     y_test_proba = model.predict_proba(X_test)[:, 1]
 
-    cm_train = confusion_matrix(y_train, y_train_pred)
-    cm_test = confusion_matrix(y_test, y_test_pred)
+    prob_true_train, prob_pred_train = calibration_curve(
+        y_train, y_train_proba, n_bins=5
+    )
+    prob_true_test, prob_pred_test = calibration_curve(y_test, y_test_proba, n_bins=5)
 
+    # NOTE: Accuracy is not very informative for imbalanced data (might help detect overfitting)
+    # NOTE: Confusion Matrix not important, we care about probabilities, not classifications
     metrics = {
         "train": {
+            "roc_auc": roc_auc_score(y_train, y_train_proba),
+            "log_loss": log_loss(y_train, y_train_proba),
+            "brier_score": brier_score_loss(y_train, y_train_proba),
+            "calibration_curve": (prob_true_train, prob_pred_train),
             "accuracy": accuracy_score(y_train, y_train_pred),
             "precision": precision_score(y_train, y_train_pred),
             "recall": recall_score(y_train, y_train_pred),
             "f1": f1_score(y_train, y_train_pred),
-            "roc_auc": roc_auc_score(y_train, y_train_proba),
-            "confusion_matrix": cm_train,
         },
         "test": {
+            "roc_auc": roc_auc_score(y_test, y_test_proba),
+            "log_loss": log_loss(y_test, y_test_proba),
+            "brier_score": brier_score_loss(y_test, y_test_proba),
+            "calibration_curve": (prob_true_test, prob_pred_test),
             "accuracy": accuracy_score(y_test, y_test_pred),
             "precision": precision_score(y_test, y_test_pred),
             "recall": recall_score(y_test, y_test_pred),
             "f1": f1_score(y_test, y_test_pred),
-            "roc_auc": roc_auc_score(y_test, y_test_proba),
-            "confusion_matrix": cm_test,
         },
     }
 
     print(
-        f"📊 Test Performance: ROC-AUC={metrics['test']['roc_auc']:.3f}, Accuracy={metrics['test']['accuracy']:.3f}"
+        f"Test Performance: ROC-AUC={metrics['test']['roc_auc']:.3f}, Accuracy={metrics['test']['accuracy']:.3f}"
     )
 
     return metrics
@@ -256,16 +238,10 @@ def train_xg_model(
 
         metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
 
+        # Log metrics to MLflow
         for split_name, split_metrics in metrics.items():
             for metric_name, value in split_metrics.items():
-                if metric_name == "confusion_matrix":
-                    tn, fp, fn, tp = value.ravel()
-                    mlflow.log_metric(f"{split_name}_tn", int(tn))
-                    mlflow.log_metric(f"{split_name}_fp", int(fp))
-                    mlflow.log_metric(f"{split_name}_fn", int(fn))
-                    mlflow.log_metric(f"{split_name}_tp", int(tp))
-                else:
-                    mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
+                mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
 
         y_test_proba = model.predict_proba(X_test)[:, 1]
 
