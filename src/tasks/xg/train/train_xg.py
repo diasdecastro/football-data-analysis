@@ -63,8 +63,8 @@ def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
 
     df_clean = df.dropna(
         subset=[
-            "x",
-            "y",
+            "shot_distance",
+            "shot_angle",
             "body_part",
             "is_open_play",
             "one_on_one",
@@ -72,15 +72,8 @@ def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         ]
     ).reset_index(drop=True)
 
-    working_df = df_clean.copy()
-    if (
-        "shot_distance" not in working_df.columns
-        and "distance_to_goal" in working_df.columns
-    ):
-        working_df["shot_distance"] = working_df["distance_to_goal"]
-
     pipeline = build_feature_pipeline()
-    X = pipeline.transform(working_df).reset_index(drop=True)
+    X = pipeline.transform(df_clean).reset_index(drop=True)
     y = df_clean["is_goal"].astype(int).reset_index(drop=True)
 
     return X, y
@@ -238,10 +231,11 @@ def train_xg_model(
 
         metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
 
-        # Log metrics to MLflow
+        # Log metrics to MLflow (skip calibration_curve tuples)
         for split_name, split_metrics in metrics.items():
             for metric_name, value in split_metrics.items():
-                mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
+                if metric_name != "calibration_curve":
+                    mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
 
         y_test_proba = model.predict_proba(X_test)[:, 1]
 
