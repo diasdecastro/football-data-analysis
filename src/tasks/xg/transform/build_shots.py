@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Iterable, Iterator, List, Optional
 
 import pandas as pd
+import numpy as np
 
 from src.common import geometry, io, lookup, validation
 
@@ -31,8 +32,8 @@ class Shot:
     y: Optional[float]
     end_x: Optional[float]
     end_y: Optional[float]
-    distance_to_goal: Optional[float]
-    shot_angle: Optional[float]
+    distance_to_goal: Optional[float] | np.ndarray
+    shot_angle: Optional[float] | np.ndarray
     is_goal: int
     is_penalty: int
     is_freekick: int
@@ -139,12 +140,15 @@ def _iterate_shots_for_match(match_row: Dict) -> Iterator[Shot]:
         x_val = _to_float(loc[0]) if len(loc) > 0 else None
         y_val = _to_float(loc[1]) if len(loc) > 1 else None
 
-        # Calculate distance to goal and shot angle
+        # Calculate distance to goal and shot angle (skip invalid)
         distance_to_goal = None
         shot_angle = None
         if x_val is not None and y_val is not None:
-            distance_to_goal = geometry.distance_to_goal(x_val, y_val)
-            shot_angle = geometry.shot_angle(x_val, y_val)
+            try:
+                distance_to_goal = geometry.distance_to_goal(x_val, y_val)
+                shot_angle = geometry.shot_angle(x_val, y_val)
+            except ValueError:
+                continue
 
         yield Shot(
             event_id=str(ev["id"]),
