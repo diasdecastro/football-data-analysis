@@ -15,18 +15,18 @@ NUMERIC_BOOL_FEATURES = [
     "is_freekick",
     "first_time",
 ]
-TEMPORAL_FEATURES = ["period", "minute", "second"]
-GEOMETRY_FEATURES = ["shot_distance", "shot_angle"]
+TIME_FEATURES = ["period", "minute", "second"]
+SPACE_FEATURES = ["shot_distance", "shot_angle"]
 BODY_PART_FEATURES = [f"body_part_{name}" for name in BODY_PART_CATEGORIES]
 
 DEFAULT_FEATURE_COLUMNS: List[str] = (
-    GEOMETRY_FEATURES + NUMERIC_BOOL_FEATURES + TEMPORAL_FEATURES + BODY_PART_FEATURES
+    SPACE_FEATURES + NUMERIC_BOOL_FEATURES + TIME_FEATURES + BODY_PART_FEATURES
 )
 
 
 def normalize_body_part(body_part: Optional[str]) -> str:
     """
-    Normalize body_part values to a limited set of categories.
+    Normalize body_part.
     """
     if not body_part:
         return "Right Foot"
@@ -58,7 +58,7 @@ class FeatureStep:
 
 
 @dataclass
-class GeometryFeatureStep(FeatureStep):
+class SpaceFeatureStep(FeatureStep):
     """
     Ensure shot distance/angle columns exist by computing them from x/y when needed.
     """
@@ -67,44 +67,40 @@ class GeometryFeatureStep(FeatureStep):
     y_col: str = "y"
     distance_col: str = "shot_distance"
     angle_col: str = "shot_angle"
-    name: str = "geometry"
+    name: str = "space"
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         data = df.copy()
 
         if self.distance_col not in data.columns:
-            data[self.distance_col] = pd.NA
+            if self.x_col in data.columns and self.y_col in data.columns:
+                try:
+                    data[self.distance_col] = distance_to_goal(
+                        data[self.x_col].fillna(0), data[self.y_col].fillna(0)
+                    )
+                    # NAN if coordinates were missing
+                    mask = data[self.x_col].isna() | data[self.y_col].isna()
+                    data.loc[mask, self.distance_col] = pd.NA
+                except ValueError:
+                    data[self.distance_col] = pd.NA
+            else:
+                data[self.distance_col] = pd.NA
+
         if self.angle_col not in data.columns:
-            data[self.angle_col] = pd.NA
+            if self.x_col in data.columns and self.y_col in data.columns:
+                try:
+                    data[self.angle_col] = shot_angle(
+                        data[self.x_col].fillna(0), data[self.y_col].fillna(0)
+                    )
+                    # NAN if coordinates were missing
+                    mask = data[self.x_col].isna() | data[self.y_col].isna()
+                    data.loc[mask, self.angle_col] = pd.NA
+                except ValueError:
+                    data[self.angle_col] = pd.NA
+            else:
+                data[self.angle_col] = pd.NA
 
-        has_x = self.x_col in data.columns
-        has_y = self.y_col in data.columns
-        if has_x and has_y:
-            valid_coords = data[self.x_col].notna() & data[self.y_col].notna()
-        else:
-            valid_coords = pd.Series(False, index=data.index)
-
-        if has_x and has_y:
-            missing_distance = data[self.distance_col].isna() & valid_coords
-            if missing_distance.any():
-                data.loc[missing_distance, self.distance_col] = data.loc[
-                    missing_distance, [self.x_col, self.y_col]
-                ].apply(
-                    lambda row: float(
-                        distance_to_goal(row[self.x_col], row[self.y_col])
-                    ),
-                    axis=1,
-                )
-
-            missing_angle = data[self.angle_col].isna() & valid_coords
-            if missing_angle.any():
-                data.loc[missing_angle, self.angle_col] = data.loc[
-                    missing_angle, [self.x_col, self.y_col]
-                ].apply(
-                    lambda row: float(shot_angle(row[self.x_col], row[self.y_col])),
-                    axis=1,
-                )
-
+        # Ensure numeric types
         data[self.distance_col] = pd.to_numeric(
             data[self.distance_col], errors="coerce"
         )
@@ -135,6 +131,7 @@ class NumericFeatureStep(FeatureStep):
         return data
 
     def _coerce_value(self, value):
+        # Convert value to float
         if value is None:
             return self.fill_value
         if isinstance(value, bool):
@@ -150,7 +147,7 @@ class NumericFeatureStep(FeatureStep):
 @dataclass
 class BodyPartEncodingStep(FeatureStep):
     """
-    Normalize the `body_part` column and emit one-hot encoded columns.
+    Normalize the `body_part` column.
     """
 
     source_col: str = "body_part"
@@ -200,11 +197,11 @@ class FeaturePipeline:
 
 def build_feature_pipeline() -> FeaturePipeline:
     """
-    Factory for the default xG feature pipeline.
+    xG feature pipeline.
     """
     steps: List[FeatureStep] = [
-        GeometryFeatureStep(),
-        NumericFeatureStep(columns=NUMERIC_BOOL_FEATURES + TEMPORAL_FEATURES),
+        SpaceFeatureStep(),
+        NumericFeatureStep(columns=NUMERIC_BOOL_FEATURES + TIME_FEATURES),
         BodyPartEncodingStep(),
     ]
     return FeaturePipeline(steps=steps, feature_names=DEFAULT_FEATURE_COLUMNS)

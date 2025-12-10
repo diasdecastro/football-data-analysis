@@ -56,13 +56,14 @@ def build_features_for_model(
 
 def build_features_from_request(model, shot_req: ShotRequest):
     """
-    Build feature DataFrame from ShotRequest for the given model and return derived geometry.
+    Build feature DataFrame from ShotRequest for the given model.
     """
 
     features = xg_encode.encode_shot_for_xg(shot_req)
 
     features_df = build_features_for_model(model, **features)
 
+    # Shot distance and angle are always needed by the endpoint
     shot_distance = float(features.get("shot_distance", 0.0))
     shot_angle_rad = float(features.get("shot_angle", 0.0))
     shot_angle_deg = math.degrees(shot_angle_rad)
@@ -114,10 +115,8 @@ def generate_xg_heatmap(
         for j in range(len(x_range)):
             x, y = X_grid[i, j], Y_grid[i, j]
 
-            shot_distance = distance_to_goal(x, y)
-            shot_angle_rad = shot_angle(x, y)
-
             # Use Right Foot as default for heatmap
+            # TODO: add (optional) parameters for all features
             features, _, _, _ = build_features_from_request(
                 model, ShotRequest(x=x, y=y, body_part="Right Foot")
             )

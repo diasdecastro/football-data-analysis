@@ -44,7 +44,7 @@ def _shot_to_dict(shot: Any) -> Dict[str, Any]:
     for field in SHOT_FIELDS:
         value = getattr(shot, field, None)
 
-        # Shots produced upstream store distance/angle as distance_to_goal/shot_angle
+        # Shots produced upstream store distance/angle as distance_to_goal/shot_angle TODO: fix this
         if value is None and isinstance(shot, Shot):
             if field == "shot_distance":
                 value = getattr(shot, "distance_to_goal", None)
@@ -58,7 +58,7 @@ def _shot_to_dict(shot: Any) -> Dict[str, Any]:
 
 def encode_shot_for_xg(shot: Any) -> Dict[str, float]:
     """
-    Turn a Shot-like object into a flat dict of model-ready features using the shared pipeline.
+    Turn a Shot-like object into a dict of model-ready features.
     """
     pipeline = _get_pipeline()
     raw_dict = _shot_to_dict(shot)
