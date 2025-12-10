@@ -61,6 +61,12 @@ class FeatureStep:
 class SpaceFeatureStep(FeatureStep):
     """
     Ensure shot distance/angle columns exist by computing them from x/y when needed.
+
+    For inputs:
+    - shot_distance (float)
+    - shot_angle (float)
+    - x (float)
+    - y (float)
     """
 
     x_col: str = "x"
@@ -113,6 +119,16 @@ class SpaceFeatureStep(FeatureStep):
 class NumericFeatureStep(FeatureStep):
     """
     Coerce numeric/boolean features to floats and fill missing values.
+
+    For inputs:
+    - is_open_play (bool)
+    - one_on_one (bool)
+    - is_penalty (bool)
+    - is_freekick (bool)
+    - first_time (bool)
+    - period (int)
+    - minute (int)
+    - second (int)
     """
 
     columns: Sequence[str]
@@ -148,6 +164,9 @@ class NumericFeatureStep(FeatureStep):
 class BodyPartEncodingStep(FeatureStep):
     """
     Normalize the `body_part` column.
+
+    For inputs:
+    - body_part (str)
     """
 
     source_col: str = "body_part"
@@ -198,6 +217,20 @@ class FeaturePipeline:
 def build_feature_pipeline() -> FeaturePipeline:
     """
     xG feature pipeline.
+
+    Expected/accepted input:
+    - x (float): x coordinate of the shot
+    - y (float): y coordinate of the shot
+    - body_part (str): body part used for the shot
+    - is_open_play (bool)
+    - one_on_one (bool)
+    - is_penalty (bool)
+    - is_freekick (bool)
+    - first_time (bool)
+    - period (int)
+    - minute (int)
+    - second (int)
+
     """
     steps: List[FeatureStep] = [
         SpaceFeatureStep(),
