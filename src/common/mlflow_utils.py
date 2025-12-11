@@ -5,7 +5,6 @@ Simple, reusable MLflow logging utilities.
 from typing import Optional
 import mlflow
 from pathlib import Path
-from sklearn.metrics import brier_score_loss, log_loss
 
 from src.common import io
 
