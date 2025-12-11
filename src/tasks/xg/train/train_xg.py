@@ -23,6 +23,7 @@ from src.common import io
 from src.common.mlflow_utils import (
     log_dataset_info,
     log_model_coefficients,
+    log_params,
 )
 
 import mlflow
@@ -194,31 +195,44 @@ def train_xg_model(
     mlflow.set_experiment(experiment_name)
 
     with mlflow.start_run(run_name=run_name):
-        mlflow.set_tag("task", "xg")
-        mlflow.set_tag("model_type", "logistic_regression")
-        mlflow.set_tag("model_family", "linear")
-        mlflow.set_tag("framework", "sklearn")
+        # mlflow.set_tag("task", "xg")
+        # mlflow.set_tag("model_type", "logistic_regression")
+        # mlflow.set_tag("model_family", "linear")
+        # mlflow.set_tag("framework", "sklearn")
 
-        mlflow.log_param("test_size", test_size)
-        mlflow.log_param("random_state", random_state)
-        mlflow.log_param("max_iter", max_iter)
-        mlflow.log_param("solver", "liblinear")
+        # mlflow.log_param("test_size", test_size)
+        # mlflow.log_param("random_state", random_state)
+        # mlflow.log_param("max_iter", max_iter)
+        # mlflow.log_param("solver", "liblinear")
 
-        if features_path is not None:
-            mlflow.log_param("features_path", str(features_path))
-        else:
-            mlflow.log_param("features_path", str(io.xg_features_gold_path()))
+        # if features_path is not None:
+        #     mlflow.log_param("features_path", str(features_path))
+        # else:
+        #     mlflow.log_param("features_path", str(io.xg_features_gold_path()))
 
         df = load_training_data(features_path)
         X, y = prepare_features_target(df)
 
-        num_features = X.shape[1]
+        amount_features = X.shape[1]
         feature_names = X.columns.tolist()
         feature_list = ", ".join(feature_names)
 
-        mlflow.log_param("num_features", num_features)
-        mlflow.log_param("feature_names", feature_list)
-        mlflow.set_tag("features", feature_list)  # Also as tag for easy filtering
+        # mlflow.log_param("amount_features", amount_features)
+        # mlflow.log_param("feature_names", feature_list)
+        # mlflow.set_tag("features", feature_list)  # Also as tag for easy filtering
+
+        log_params(
+            task="xg",
+            model_name=model_name,
+            model_family="linear",
+            framework="sklearn",
+            test_size=test_size,
+            random_state=random_state,
+            max_iter=max_iter,
+            features_path=features_path,
+            amount_features=amount_features,
+            feature_list=feature_list,
+        )
 
         log_dataset_info(df, y)
 
@@ -232,6 +246,7 @@ def train_xg_model(
         metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
 
         # Log metrics to MLflow (skip calibration_curve tuples)
+        # # TODO: find a way to log or do something with the calibration curves
         for split_name, split_metrics in metrics.items():
             for metric_name, value in split_metrics.items():
                 if metric_name != "calibration_curve":
