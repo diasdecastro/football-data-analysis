@@ -2,9 +2,12 @@
 Simple, reusable MLflow logging utilities.
 """
 
+from typing import Optional
 import mlflow
 from pathlib import Path
 from sklearn.metrics import brier_score_loss, log_loss
+
+from src.common import io
 
 
 # For now xG-specific, can be generalized later
@@ -62,3 +65,40 @@ def log_model_coefficients(model, feature_names=None):
                 mlflow.log_metric(f"importance_{feature_names[i]}", float(importance))
             else:
                 mlflow.log_metric(f"importance_{i}", float(importance))
+
+
+# TODO: make more general
+def log_params(
+    task: str = "Unknown Task",
+    model_name: str = "NA",
+    model_family: str = "NA",
+    framework: str = "NA",
+    test_size: float = 0.0,
+    random_state: int = 0,
+    max_iter: int = 0,
+    solver: str = "NA",
+    features_path: Optional[Path] = Path("NA"),
+    amount_features: int = 0,
+    feature_list: str = "NA",
+):
+    """
+    Helper for logging MLflow parameters
+    """
+    mlflow.set_tag("task", task)
+    mlflow.set_tag("model_type", model_name)
+    mlflow.set_tag("model_family", model_family)
+    mlflow.set_tag("framework", framework)
+
+    mlflow.log_param("test_size", test_size)
+    mlflow.log_param("random_state", random_state)
+    mlflow.log_param("max_iter", max_iter)
+    mlflow.log_param("solver", solver)
+
+    if features_path is not None:
+        mlflow.log_param("features_path", str(features_path))
+    else:
+        mlflow.log_param("features_path", str(io.xg_features_gold_path()))
+
+    mlflow.log_param("amount_features", amount_features)
+    mlflow.log_param("feature_names", feature_list)
+    mlflow.set_tag("features", feature_list)  # Also as tag for easy filtering
