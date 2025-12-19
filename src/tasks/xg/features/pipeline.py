@@ -17,7 +17,9 @@ NUMERIC_BOOL_FEATURES = [
 ]
 TIME_FEATURES = ["period", "minute", "second"]
 SPACE_FEATURES = ["shot_distance", "shot_angle"]
-BODY_PART_FEATURES = [f"body_part_{name}" for name in BODY_PART_CATEGORIES]
+BODY_PART_FEATURES = [
+    f"body_part_{name.lower().replace(' ', '_')}" for name in BODY_PART_CATEGORIES
+]
 
 DEFAULT_FEATURE_COLUMNS: List[str] = (
     SPACE_FEATURES + NUMERIC_BOOL_FEATURES + TIME_FEATURES + BODY_PART_FEATURES
@@ -180,7 +182,8 @@ class BodyPartEncodingStep(FeatureStep):
 
         normalized = data[self.source_col].apply(normalize_body_part)
         for category in self.categories:
-            col_name = f"body_part_{category}"
+            # Convert category name to lowercase with underscores
+            col_name = f"body_part_{category.lower().replace(' ', '_')}"
             data[col_name] = (normalized == category).astype(float)
 
         return data
