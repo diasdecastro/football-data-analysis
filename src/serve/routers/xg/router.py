@@ -28,7 +28,7 @@ from src.serve.routers.xg.helpers import (
     generate_xg_heatmap,
     get_model_feature_names,
 )
-from src.tasks.xg.train.train_xg import train_xg_model
+from src.tasks.xg.train.train_xg import train_pipeline
 from src.monitoring.logger import log_xg_inference
 from src.monitoring.drift import build_drift_report
 
@@ -249,7 +249,7 @@ async def generate_heatmap(
     description="Train a new xG model using the latest features dataset",
 )
 async def train_model(requestBody: XGModelTrainRequest):
-    train_xg_model(
+    train_pipeline(
         features_path=requestBody.features_path,
         output_path=requestBody.output_path,
         test_size=requestBody.test_size,

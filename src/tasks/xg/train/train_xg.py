@@ -6,6 +6,7 @@ from typing import Tuple
 
 import joblib
 import pandas as pd
+import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -57,30 +58,40 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
     return features
 
 
-def prepare_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
+def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     """
-    Prepare features and target for training using the shared feature pipeline.
+    Prepare features for training using the feature pipeline.
     """
 
-    df_clean = df.dropna(
-        subset=[
-            "shot_distance",
-            "shot_angle",
-            "body_part",
-            "is_open_play",
-            "one_on_one",
-            "is_goal",
-        ]
-    ).reset_index(drop=True)
+    included_features = [
+        "shot_distance",
+        "shot_angle",
+        "body_part_right_foot",
+        "body_part_left_foot",
+        "body_part_head",
+        "body_part_other",
+        "is_open_play",
+        "one_on_one",
+    ]
 
     pipeline = build_feature_pipeline()
-    X = pipeline.transform(df_clean).reset_index(drop=True)
-    y = df_clean["is_goal"].astype(int).reset_index(drop=True)
+    X = pipeline.transform(df)[included_features].dropna()
+    y = df["is_goal"].dropna()
+
+    # Feature engineering
+
+    X["log_angle"] = np.log(X["shot_angle"] + 1e-5)  # penalty for small (tight) angles
+    X["one_on_one_x_log_angle"] = (
+        X["one_on_one"].astype(int) * X["log_angle"]
+    )  # in one on one, angle is less important
+    X["one_on_one_x_dist"] = (
+        X["one_on_one"].astype(int) * X["shot_distance"]
+    )  # in one on one, distance is less important
 
     return X, y
 
 
-def train_logistic_regression(
+def train_model(
     X: pd.DataFrame,
     y: pd.Series,
     test_size: float = 0.2,
@@ -155,9 +166,9 @@ def evaluate_model(
         },
     }
 
-    print(
-        f"Test Performance: ROC-AUC={metrics['test']['roc_auc']:.3f}, Accuracy={metrics['test']['accuracy']:.3f}"
-    )
+    # print(
+    #     f"Test Performance: ROC-AUC={metrics['test']['roc_auc']:.3f}, Accuracy={metrics['test']['accuracy']:.3f}"
+    # )
 
     return metrics
 
@@ -177,7 +188,7 @@ def save_model(model: LogisticRegression, output_path: Path | None = None) -> Pa
     return output_path
 
 
-def train_xg_model(
+def train_pipeline(
     features_path: Path | None = None,
     output_path: Path | None = None,
     test_size: float = 0.2,
@@ -197,7 +208,7 @@ def train_xg_model(
     with mlflow.start_run(run_name=run_name):
 
         df = load_training_data(features_path)
-        X, y = prepare_features_target(df)
+        X, y = prepare_features(df)
 
         amount_features = X.shape[1]
         feature_names = X.columns.tolist()
@@ -218,7 +229,7 @@ def train_xg_model(
 
         log_dataset_info(df, y)
 
-        model, X_train, X_test, y_train, y_test = train_logistic_regression(
+        model, X_train, X_test, y_train, y_test = train_model(
             X, y, test_size=test_size, random_state=random_state, max_iter=max_iter
         )
 
@@ -228,7 +239,7 @@ def train_xg_model(
         metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
 
         # Log metrics to MLflow (skip calibration_curve tuples)
-        # # TODO: find a way to log or do something with the calibration curves
+        # TODO: find a way to log or do something with the calibration curves
         for split_name, split_metrics in metrics.items():
             for metric_name, value in split_metrics.items():
                 if metric_name != "calibration_curve":
@@ -313,7 +324,7 @@ def parse_cli() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_cli()
 
-    model, metrics, saved_path = train_xg_model(
+    model, metrics, saved_path = train_pipeline(
         features_path=Path(args.features_path) if args.features_path else None,
         output_path=Path(args.output_path) if args.output_path else None,
         test_size=args.test_size,
