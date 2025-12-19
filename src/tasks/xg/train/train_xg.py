@@ -109,7 +109,7 @@ def train_model(
     model = LogisticRegression(
         random_state=random_state,
         max_iter=max_iter,
-        solver="liblinear",
+        solver="lbfgs",
     )
 
     model.fit(X_train, y_train)
