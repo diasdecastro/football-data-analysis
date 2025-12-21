@@ -9,6 +9,10 @@ from src.common import io, validation
 
 # Defaults aligned with our silver schema
 FEATURE_COLS = [
+    "x",
+    "y",
+    "end_x",
+    "end_y",
     "match_id",
     "team_id",
     "player_id",
@@ -34,6 +38,10 @@ def build_xg_features(
     validation.require_columns(
         shots,
         [
+            "x",
+            "y",
+            "end_x",
+            "end_y",
             "match_id",
             "team_id",
             "player_id",
@@ -51,6 +59,10 @@ def build_xg_features(
 
     features = shots.rename(columns={"distance_to_goal": "shot_distance"})[
         [
+            "x",
+            "y",
+            "end_x",
+            "end_y",
             "match_id",
             "team_id",
             "player_id",
