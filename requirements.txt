@@ -8,3 +8,4 @@ joblib
 pyarrow
 fastparquet
 evidently
+xgboost

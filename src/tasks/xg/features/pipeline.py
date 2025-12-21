@@ -16,7 +16,7 @@ NUMERIC_BOOL_FEATURES = [
     "first_time",
 ]
 TIME_FEATURES = ["period", "minute", "second"]
-SPACE_FEATURES = ["shot_distance", "shot_angle"]
+SPACE_FEATURES = ["shot_distance", "shot_angle", "x", "y", "end_x", "end_y"]
 BODY_PART_FEATURES = [
     f"body_part_{name.lower().replace(' ', '_')}" for name in BODY_PART_CATEGORIES
 ]
@@ -73,6 +73,8 @@ class SpaceFeatureStep(FeatureStep):
 
     x_col: str = "x"
     y_col: str = "y"
+    end_x_col: str = "end_x"
+    end_y_col: str = "end_y"
     distance_col: str = "shot_distance"
     angle_col: str = "shot_angle"
     name: str = "space"
@@ -80,6 +82,7 @@ class SpaceFeatureStep(FeatureStep):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         data = df.copy()
 
+        # Compute distance if needed
         if self.distance_col not in data.columns:
             if self.x_col in data.columns and self.y_col in data.columns:
                 try:
@@ -90,10 +93,9 @@ class SpaceFeatureStep(FeatureStep):
                     mask = data[self.x_col].isna() | data[self.y_col].isna()
                     data.loc[mask, self.distance_col] = pd.NA
                 except ValueError:
-                    data[self.distance_col] = pd.NA
-            else:
-                data[self.distance_col] = pd.NA
+                    pass  # Don't create column if computation fails
 
+        # Compute angle if needed
         if self.angle_col not in data.columns:
             if self.x_col in data.columns and self.y_col in data.columns:
                 try:
@@ -104,15 +106,15 @@ class SpaceFeatureStep(FeatureStep):
                     mask = data[self.x_col].isna() | data[self.y_col].isna()
                     data.loc[mask, self.angle_col] = pd.NA
                 except ValueError:
-                    data[self.angle_col] = pd.NA
-            else:
-                data[self.angle_col] = pd.NA
+                    pass  # Don't create column if computation fails
 
-        # Ensure numeric types
-        data[self.distance_col] = pd.to_numeric(
-            data[self.distance_col], errors="coerce"
-        )
-        data[self.angle_col] = pd.to_numeric(data[self.angle_col], errors="coerce")
+        # Ensure numeric types for computed columns
+        if self.distance_col in data.columns:
+            data[self.distance_col] = pd.to_numeric(
+                data[self.distance_col], errors="coerce"
+            )
+        if self.angle_col in data.columns:
+            data[self.angle_col] = pd.to_numeric(data[self.angle_col], errors="coerce")
 
         return data
 

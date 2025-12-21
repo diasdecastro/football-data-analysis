@@ -8,7 +8,7 @@ import joblib
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -19,6 +19,7 @@ from sklearn.metrics import (
     brier_score_loss,
 )
 from sklearn.calibration import calibration_curve
+from sklearn.preprocessing import StandardScaler
 
 from src.common import io
 from src.common.mlflow_utils import (
@@ -42,6 +43,8 @@ def load_training_data(features_path: Path | None = None) -> pd.DataFrame:
     required_cols = [
         "shot_distance",
         "shot_angle",
+        "end_x",
+        "end_y",
         "body_part",
         "is_open_play",
         "one_on_one",
@@ -66,6 +69,8 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     included_features = [
         "shot_distance",
         "shot_angle",
+        "end_x",
+        "end_y",
         "body_part_right_foot",
         "body_part_left_foot",
         "body_part_head",
@@ -80,13 +85,60 @@ def prepare_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
 
     # Feature engineering
 
-    X["log_angle"] = np.log(X["shot_angle"] + 1e-5)  # penalty for small (tight) angles
-    X["one_on_one_x_log_angle"] = (
-        X["one_on_one"].astype(int) * X["log_angle"]
-    )  # in one on one, angle is less important
-    X["one_on_one_x_dist"] = (
-        X["one_on_one"].astype(int) * X["shot_distance"]
-    )  # in one on one, distance is less important
+    X["log_angle"] = np.log(X["shot_angle"] + 1e-5)
+    X["one_on_one_x_log_angle"] = X["one_on_one"].astype(int) * X["log_angle"]
+    X["one_on_one_x_dist"] = X["one_on_one"].astype(int) * X["shot_distance"]
+    X["head_x_dist"] = X["body_part_head"].astype(int) * X["shot_distance"]
+    X["distance_x_angle"] = X["shot_distance"] * X["log_angle"]
+
+    # Feature scaling
+    scaler = StandardScaler()
+    X_continous = X[
+        [
+            "end_x",
+            "end_y",
+            "shot_distance",
+            "shot_angle",
+            "log_angle",
+            "one_on_one_x_log_angle",
+            "one_on_one_x_dist",
+            "head_x_dist",
+            "distance_x_angle",
+        ]
+    ]
+    X_scaled = scaler.fit_transform(X_continous)
+
+    X.drop(
+        [
+            "end_x",
+            "end_y",
+            "shot_distance",
+            "shot_angle",
+            "log_angle",
+            "one_on_one_x_log_angle",
+            "one_on_one_x_dist",
+            "head_x_dist",
+            "distance_x_angle",
+        ],
+        axis=1,
+        inplace=True,
+    )
+    X_scaled_df = pd.DataFrame(
+        X_scaled,
+        columns=[
+            "end_x",
+            "end_y",
+            "shot_distance",
+            "shot_angle",
+            "log_angle",
+            "one_on_one_x_log_angle",
+            "one_on_one_x_dist",
+            "head_x_dist",
+            "distance_x_angle",
+        ],
+        index=X.index,
+    )
+    X = pd.concat([X, X_scaled_df], axis=1)
 
     return X, y
 
@@ -103,14 +155,23 @@ def train_model(
     """
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
+        X,
+        y,
+        test_size=test_size,
+        random_state=random_state,
     )
 
     model = LogisticRegression(
         random_state=random_state,
         max_iter=max_iter,
         solver="lbfgs",
+        penalty="l2",
+        C=0.3,
     )
+
+    # Cross-validation
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cross_val_score(model, X_train, y_train, cv=cv, scoring="neg_log_loss")
 
     model.fit(X_train, y_train)
 
@@ -120,7 +181,7 @@ def train_model(
 
 
 def evaluate_model(
-    model: LogisticRegression,
+    model,
     X_train: pd.DataFrame,
     X_test: pd.DataFrame,
     y_train: pd.Series,
@@ -145,9 +206,9 @@ def evaluate_model(
     # NOTE: Confusion Matrix not important, we care about probabilities, not classifications
     metrics = {
         "train": {
-            "roc_auc": roc_auc_score(y_train, y_train_proba),
             "log_loss": log_loss(y_train, y_train_proba),
             "brier_score": brier_score_loss(y_train, y_train_proba),
+            "roc_auc": roc_auc_score(y_train, y_train_proba),
             "calibration_curve": (prob_true_train, prob_pred_train),
             "accuracy": accuracy_score(y_train, y_train_pred),
             "precision": precision_score(y_train, y_train_pred),
@@ -155,9 +216,9 @@ def evaluate_model(
             "f1": f1_score(y_train, y_train_pred),
         },
         "test": {
-            "roc_auc": roc_auc_score(y_test, y_test_proba),
             "log_loss": log_loss(y_test, y_test_proba),
             "brier_score": brier_score_loss(y_test, y_test_proba),
+            "roc_auc": roc_auc_score(y_test, y_test_proba),
             "calibration_curve": (prob_true_test, prob_pred_test),
             "accuracy": accuracy_score(y_test, y_test_pred),
             "precision": precision_score(y_test, y_test_pred),
@@ -166,9 +227,9 @@ def evaluate_model(
         },
     }
 
-    # print(
-    #     f"Test Performance: ROC-AUC={metrics['test']['roc_auc']:.3f}, Accuracy={metrics['test']['accuracy']:.3f}"
-    # )
+    print(
+        f"Test Performance: log_loss={metrics['test']['log_loss']:.3f}, brier_score={metrics['test']['brier_score']:.3f}"
+    )
 
     return metrics
 
@@ -191,7 +252,7 @@ def save_model(model: LogisticRegression, output_path: Path | None = None) -> Pa
 def train_pipeline(
     features_path: Path | None = None,
     output_path: Path | None = None,
-    test_size: float = 0.2,
+    test_size: float = 0.3,
     random_state: int = 42,
     max_iter: int = 1000,
     run_name: str | None = None,
@@ -238,12 +299,19 @@ def train_pipeline(
 
         metrics = evaluate_model(model, X_train, X_test, y_train, y_test)
 
-        # Log metrics to MLflow (skip calibration_curve tuples)
-        # TODO: find a way to log or do something with the calibration curves
+        # Log metrics to MLflow
         for split_name, split_metrics in metrics.items():
             for metric_name, value in split_metrics.items():
                 if metric_name != "calibration_curve":
                     mlflow.log_metric(f"{split_name}_{metric_name}", float(value))
+                else:
+                    prob_true, prob_pred = value
+                    mlflow.log_param(
+                        f"{split_name}_calibration_prob_true", str(prob_true.tolist())
+                    )
+                    mlflow.log_param(
+                        f"{split_name}_calibration_prob_pred", str(prob_pred.tolist())
+                    )
 
         y_test_proba = model.predict_proba(X_test)[:, 1]
 
