@@ -12,63 +12,41 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from src.common.geometry import distance_to_goal, shot_angle
 from src.serve.schemas import ShotRequest
-import src.tasks.xg.features.encode as xg_encode
-
-
-def build_features_for_model(
-    model,
-    **raw_features,
-) -> pd.DataFrame:
-    """
-    Build feature DataFrame based on model's expected features.
-    """
-    feature_names = getattr(model, "feature_names_in_", None)
-
-    if feature_names is None:
-        return pd.DataFrame(
-            {
-                "shot_distance": [raw_features["shot_distance"]],
-                "shot_angle": [raw_features["shot_angle"]],
-            }
-        )
-
-    features_dict: dict[str, list] = {}
-
-    # Handle body_part one-hot encoding
-    body_part_value = raw_features.get("body_part", "Right Foot")
-    body_part_features = [f for f in feature_names if f.startswith("body_part_")]
-    for feat in body_part_features:
-        part_name = feat.replace("body_part_", "")
-        features_dict[feat] = [1 if body_part_value == part_name else 0]
-
-    # All other features: take from raw_features or fallback to default
-    for feat in feature_names:
-        if feat in features_dict:
-            continue
-
-        if feat in raw_features:
-            features_dict[feat] = [raw_features[feat]]
-        else:
-            features_dict[feat] = [0]
-
-    return pd.DataFrame(features_dict)[list(feature_names)]
+from src.tasks.xg.train.train_xg import prepare_features
 
 
 def build_features_from_request(model, shot_req: ShotRequest):
     """
-    Build feature DataFrame from ShotRequest for the given model.
+    Build feature DataFrame from ShotRequest.
+    Uses prepare_features from training script for consistency.
     """
+    # Calculate shot distance and angle from coordinates
+    shot_distance, shot_angle_rad, shot_angle_deg = calculate_shot_features(
+        shot_req.x, shot_req.y
+    )
 
-    features = xg_encode.encode_shot_for_xg(shot_req)
+    # Build raw DataFrame with shot data
+    raw_df = pd.DataFrame(
+        [
+            {
+                "x": shot_req.x,
+                "y": shot_req.y,
+                "end_x": getattr(shot_req, "end_x", 120.0),  # Goal center
+                "end_y": getattr(shot_req, "end_y", 40.0),  # Goal center
+                "shot_distance": shot_distance,
+                "shot_angle": shot_angle_rad,
+                "body_part": shot_req.body_part,
+                "is_open_play": shot_req.is_open_play,
+                "one_on_one": shot_req.one_on_one,
+                "is_goal": 0,  # Dummy value, not used for prediction
+            }
+        ]
+    )
 
-    features_df = build_features_for_model(model, **features)
+    # Use the same preprocessing as training
+    X, _ = prepare_features(raw_df)
 
-    # Shot distance and angle are always needed by the endpoint
-    shot_distance = float(features.get("shot_distance", 0.0))
-    shot_angle_rad = float(features.get("shot_angle", 0.0))
-    shot_angle_deg = math.degrees(shot_angle_rad)
-
-    return features_df, shot_distance, shot_angle_rad, shot_angle_deg
+    return X, shot_distance, shot_angle_rad, shot_angle_deg
 
 
 def interpret_xg(xg_value: float) -> str:
