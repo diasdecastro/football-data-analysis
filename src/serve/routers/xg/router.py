@@ -30,8 +30,6 @@ from src.serve.routers.xg.helpers import (
 )
 from src.tasks.xg.train.train_xg import train_pipeline
 from src.monitoring.logger import log_xg_inference
-from src.monitoring.drift import build_drift_report
-
 
 router = APIRouter(prefix="/xg", tags=["xG (Expected Goals)"])
 
@@ -259,24 +257,6 @@ async def train_model(requestBody: XGModelTrainRequest):
         experiment_name=requestBody.experiment_name,
         model_name=requestBody.model_name,
     )
-
-
-@router.get(
-    "/monitoring/drift",
-    summary="View data drift report",
-    description="Generate and return an HTML data drift report comparing training data to recent inferences.",
-    response_class=HTMLResponse,
-)
-async def xg_drift_report():
-    report_path = build_drift_report()
-    if report_path is None:
-        return HTMLResponse(
-            "<h3>No monitoring data yet</h3><p>Make some /xg/score calls first.</p>",
-            status_code=200,
-        )
-    with open(report_path, "r", encoding="utf-8") as f:
-        html = f.read()
-    return HTMLResponse(content=html, status_code=200)
 
 
 @router.get(

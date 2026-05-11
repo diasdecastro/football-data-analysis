@@ -7,5 +7,4 @@ mlflow
 joblib
 pyarrow
 fastparquet
-evidently
 xgboost
