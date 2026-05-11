@@ -401,6 +401,27 @@
                 </div>
 
                 <div class="info-section">
+                    <h3>⚙️ Shot Options</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Body Part</span>
+                        <select id="body-part-select" class="stat-value" style="border: 1px solid #cbd5e0; border-radius: 5px; padding: 5px;">
+                            <option value="Right Foot">Right Foot</option>
+                            <option value="Left Foot">Left Foot</option>
+                            <option value="Head">Head</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">One-on-One</span>
+                        <input type="checkbox" id="one-on-one-check" style="width: 20px; height: 20px; cursor: pointer;">
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Open Play</span>
+                        <input type="checkbox" id="open-play-check" checked style="width: 20px; height: 20px; cursor: pointer;">
+                    </div>
+                </div>
+
+                <div class="info-section">
                     <h3>📊 Shot Details</h3>
                     <div class="stat-row">
                         <span class="stat-label">Distance to Goal</span>
@@ -694,11 +715,21 @@
         // Calculate xG
         async function calculateXG(pitchX, pitchY) {
             try {
+                const bodyPart = document.getElementById('body-part-select').value;
+                const oneOnOne = document.getElementById('one-on-one-check').checked;
+                const openPlay = document.getElementById('open-play-check').checked;
+
                 const modelParam = currentModel ? `?model_id=${currentModel}` : '';
                 const response = await fetch(`${API_BASE_URL}/xg/score${modelParam}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ x: pitchX, y: pitchY })
+                    body: JSON.stringify({ 
+                        x: pitchX, 
+                        y: pitchY,
+                        body_part: bodyPart,
+                        one_on_one: oneOnOne,
+                        is_open_play: openPlay
+                    })
                 });
 
                 if (!response.ok) throw new Error(`API error: ${response.status}`);
